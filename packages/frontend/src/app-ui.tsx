@@ -446,7 +446,7 @@ export function SongCard({
           ) : null}
           {showDot ? <span className="song-card-dot">·</span> : null}
           {timeBit ? <span className="song-card-time">{__UI_ago(timeBit.ts)}</span> : null}
-          {nowBit && active ? <span className="song-card-now">▶ NOW PLAYING</span> : null}
+          {nowBit ? <span className="song-card-now">▶ NOW PLAYING</span> : null}
         </div>
       </div>
       {actions ? <div className="song-card-actions">{actions}</div> : null}
@@ -490,12 +490,17 @@ export function QueueRow({
     const ok = window.confirm(`Remove "${song.title}" from the queue?`);
     if (ok) onDelete(song.id);
   };
-  const meta: MetaBit[] = [
-    { kind: "src", source: song.source },
-    { kind: "by", name: song.addedBy.name, emoji: song.addedBy.emoji },
-    { kind: "time", ts: song.addedAt },
-  ];
-  if (isCurrent) meta.push({ kind: "now" });
+  // The pinned current row collapses its meta to a single NOW PLAYING tag
+  // — the cover plate already signals "this is what's playing", so the
+  // adder name + time are redundant noise. Pending rows still carry the
+  // full src + by + time triplet.
+  const meta: MetaBit[] = isCurrent
+    ? [{ kind: "now" }]
+    : [
+        { kind: "src", source: song.source },
+        { kind: "by", name: song.addedBy.name, emoji: song.addedBy.emoji },
+        { kind: "time", ts: song.addedAt },
+      ];
   const cover = isCurrent ? <NowPlayingPlate /> : <CoverThumb source={song.source} videoId={song.videoId} />;
   return (
     <SongCard
@@ -503,7 +508,9 @@ export function QueueRow({
       cover={cover}
       title={song.title}
       meta={meta}
-      active={!!isCurrent}
+      // Don't pass `active` — the pinned current row should look like any
+      // other row in chrome (no pink border, no glow). The plate + the
+      // NOW PLAYING tag carry all the "this is current" signal we need.
       dragging={!!dragging}
       dropTarget={!!dropTarget}
       actions={

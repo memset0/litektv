@@ -2,12 +2,12 @@
 
 ### Requirement: Pinned current track at the top of the queue list
 
-When `room.current` is non-null, the queue list SHALL render that song as a pinned row 0, ABOVE all pending rows. The pinned row SHALL render through the same `SongCard` primitive as the rest, with `active=true`, so its visual chrome (border, glow, NOW PLAYING meta-line tag) signals "current track" consistently with the existing active-row treatment. The pinned row's `cover` slot SHALL be a now-playing plate (a 48×48 dark scrim with a centered pink microphone glyph) that replaces the normal `<CoverThumb>`. When `room.current` is null the queue list renders only pending rows (no pinned slot, no placeholder).
+When `room.current` is non-null, the queue list SHALL render that song as a pinned row 0, ABOVE all pending rows. The pinned row SHALL render through the same `SongCard` primitive as the rest, with the **same default chrome** as a pending row — NO active-style border highlight, NO pink glow. The pinned row's `cover` slot SHALL be a now-playing plate (a 48×48 dark scrim with a centered pink karaoke-mic glyph) that replaces the normal `<CoverThumb>`. The pinned row's meta line SHALL be collapsed to ONLY the `▶ NOW PLAYING` tag — `src` / `by` / `time` bits SHALL be dropped, because the plate already identifies the row as the current track and the adder/time noise distracts from that. When `room.current` is null the queue list renders only pending rows (no pinned slot, no placeholder).
 
 #### Scenario: Current song is playing
 
 - **WHEN** the queue tab is visible and `room.current` is a Song
-- **THEN** the first row in the list SHALL be that song, rendered with `active=true`, the now-playing plate in the cover slot, and the `▶ NOW PLAYING` meta tag in the meta line
+- **THEN** the first row in the list SHALL be that song, rendered with the now-playing plate in the cover slot, the meta line containing ONLY `▶ NOW PLAYING` (no source pill, no adder, no relative time), and standard non-active row border/chrome
 - **AND** the rows below SHALL be `room.queue` in unchanged order
 
 #### Scenario: No song is playing

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>霓虹麦房 · KTV 点歌台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Major+Mono+Display&family=Space+Grotesk:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="ktv.css" />
+  <link rel="stylesheet" href="ktv-extras.css" />
+<style id="ktv-base">
+  :root {
+    --bg-0: #07060f;
+    --bg-1: #0d0a1e;
+    --bg-2: #14112a;
+    --ink: #f4ecff;
+    --ink-dim: #b8aedb;
+    --ink-mute: #6e6493;
+    --neon-pink: #ff2ea6;
+    --neon-purple: #a45cff;
+    --neon-cyan: #2cf5ff;
+    --neon-yellow: #fff45c;
+    --line: rgba(164, 92, 255, 0.22);
+    --line-strong: rgba(255, 46, 166, 0.45);
+    --card: rgba(20, 17, 42, 0.7);
+    --card-hi: rgba(36, 28, 70, 0.85);
+    --radius: 14px;
+    --gap-y: 10px;
+    --pad: 14px;
+    --font-display: "Orbitron", "Zen Kaku Gothic New", sans-serif;
+    --font-body: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+    --font-mono: "Major Mono Display", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(255, 46, 166, 0.18), transparent 60%),
+      radial-gradient(1000px 700px at 90% 110%, rgba(44, 245, 255, 0.14), transparent 55%),
+      radial-gradient(800px 500px at 50% 50%, rgba(164, 92, 255, 0.10), transparent 70%),
+      var(--bg-0);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(164, 92, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 46, 166, 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
+  }
+  ::selection { background: var(--neon-pink); color: #07060f; }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; color: inherit; }
+  a { color: var(--neon-cyan); }
+
+  .neon-text {
+    text-shadow:
+      0 0 1px currentColor,
+      0 0 6px currentColor,
+      0 0 18px rgba(255, 46, 166, 0.5);
+  }
+  .neon-edge {
+    box-shadow:
+      0 0 0 1px var(--line),
+      0 0 24px rgba(255, 46, 166, 0.10) inset,
+      0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  .scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar::-webkit-scrollbar-thumb { background: rgba(164, 92, 255, 0.35); border-radius: 4px; }
+  .scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+  /* ------------ tweakable theme overrides (Tweaks panel writes these) ----------- */
+  body[data-theme="cyber"] { /* default */ }
+  body[data-theme="retro"] {
+    --bg-0: #170a0a;
+    --bg-1: #21100d;
+    --bg-2: #2a1612;
+    --ink: #ffe9c2;
+    --ink-dim: #f4b87c;
+    --ink-mute: #a07550;
+    --neon-pink: #ff5b3a;
+    --neon-purple: #ffb84d;
+    --neon-cyan: #ffe28a;
+    --neon-yellow: #fff45c;
+    --line: rgba(255, 184, 77, 0.25);
+    --line-strong: rgba(255, 91, 58, 0.5);
+    --card: rgba(40, 22, 17, 0.72);
+    --card-hi: rgba(60, 30, 22, 0.85);
+  }
+  body[data-theme="mono"] {
+    --bg-0: #0a0a0a;
+    --bg-1: #121212;
+    --bg-2: #1a1a1a;
+    --ink: #f1f1f1;
+    --ink-dim: #b0b0b0;
+    --ink-mute: #6a6a6a;
+    --neon-pink: #ffffff;
+    --neon-purple: #d0d0d0;
+    --neon-cyan: #ffffff;
+    --neon-yellow: #ffffff;
+    --line: rgba(255, 255, 255, 0.16);
+    --line-strong: rgba(255, 255, 255, 0.45);
+    --card: rgba(24, 24, 24, 0.82);
+    --card-hi: rgba(40, 40, 40, 0.9);
+  }
+  body[data-theme="aqua"] {
+    --bg-0: #051018;
+    --bg-1: #062130;
+    --bg-2: #093247;
+    --ink: #d8feff;
+    --ink-dim: #79d6e4;
+    --ink-mute: #4a8b9c;
+    --neon-pink: #00f0c8;
+    --neon-purple: #2cf5ff;
+    --neon-cyan: #66ffd9;
+    --neon-yellow: #fffba1;
+    --line: rgba(44, 245, 255, 0.2);
+    --line-strong: rgba(0, 240, 200, 0.45);
+    --card: rgba(9, 50, 71, 0.72);
+    --card-hi: rgba(14, 70, 95, 0.85);
+  }
+
+  body[data-density="compact"] { --gap-y: 6px; --pad: 10px; --radius: 10px; }
+  body[data-density="comfy"]   { --gap-y: 14px; --pad: 18px; --radius: 16px; }
+
+  body[data-font="display"] { --font-body: "Orbitron", "Noto Sans SC", system-ui, sans-serif; }
+  body[data-font="grotesk"] { --font-body: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif; }
+  body[data-font="kaku"]    { --font-body: "Zen Kaku Gothic New", "Noto Sans SC", system-ui, sans-serif; }
+  body[data-font="mono"]    { --font-body: "Major Mono Display", ui-monospace, monospace; }
+</style>
+<style id="__om-edit-overrides"></style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="state.jsx"></script>
+  <script type="text/babel" src="urlparse.jsx"></script>
+  <script type="text/babel" src="player.jsx"></script>
+  <script type="text/babel" src="app-ui.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

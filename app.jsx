@@ -1,0 +1,392 @@
+// app.jsx — main App orchestrator (English-only, fixed orbitron / cyber / comfy)
+
+const { useRoom: __useRoom, useMe: __useMe, useHeartbeat: __useHB, SLUG: __SLUG } = window.KTV;
+const __UI = window.KTV.UI;
+
+const LAYOUTS = [
+  { id: "split", label: "SPLIT", glyph: "▌▐" },
+  { id: "tv",    label: "TV",    glyph: "▣" },
+  { id: "phone", label: "PHONE", glyph: "▯" },
+];
+
+// ── Page-wide danmaku layer (visible when not fullscreen) ─────────
+function DanmakuLayer({ items }) {
+  const [tracks, setTracks] = React.useState([]);
+  const seenRef = React.useRef(new Set());
+  const trackPtrRef = React.useRef(0);
+  const TRACKS = 5;
+  React.useEffect(() => {
+    if (!items) return;
+    const fresh = items.filter((d) => !seenRef.current.has(d.id) && Date.now() - d.ts < 14000);
+    fresh.forEach((d) => seenRef.current.add(d.id));
+    if (!fresh.length) return;
+    setTracks((prev) => {
+      let next = [...prev];
+      fresh.forEach((d) => {
+        const lane = trackPtrRef.current % TRACKS;
+        trackPtrRef.current += 1;
+        next.push({ ...d, lane, expiresAt: Date.now() + 12000 });
+      });
+      return next.filter((d) => d.expiresAt > Date.now());
+    });
+  }, [items && items.length, items && items[items.length - 1] && items[items.length - 1].id]);
+  React.useEffect(() => {
+    const t = setInterval(() => setTracks((p) => p.filter((d) => d.expiresAt > Date.now())), 1500);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="dm-layer" aria-hidden>
+      {tracks.map((d) => (
+        <div key={d.id} className="dm-item" style={{ top: `calc(${(d.lane * 18) + 6}%)`, animationDuration: "11s" }}>{d.text}</div>
+      ))}
+    </div>
+  );
+}
+
+function DanmakuComposer({ onSend }) {
+  const [val, setVal] = React.useState("");
+  const fire = () => { const v = val.trim(); if (!v) return; onSend(v.slice(0, 80)); setVal(""); };
+  return (
+    <div className="dm-input">
+      <input className="dm-field" placeholder="Send a danmaku — fly it across the room…" value={val} maxLength={80}
+        onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") fire(); }} />
+      <button className="dm-send" onClick={fire} title="Fire">
+        {__UI.Glyph.send}<span style={{ marginLeft: 6 }}>FIRE</span>
+      </button>
+    </div>
+  );
+}
+
+function NowPlayingBar({ current, hasPrev, hasNext, onNext, onPrev }) {
+  const isLive = !!current;
+  const titleRef = React.useRef(null);
+  const wrapRef = React.useRef(null);
+  const [overflow, setOverflow] = React.useState(false);
+  React.useEffect(() => {
+    if (!titleRef.current || !wrapRef.current) { setOverflow(false); return; }
+    const t = titleRef.current, w = wrapRef.current;
+    setOverflow(t.scrollWidth - w.clientWidth > 4);
+  }, [current && current.id, current && current.title]);
+  const titleText = current ? current.title : "— Awaiting Signal —";
+  return (
+    <div className="np-bar">
+      <__UI.IconBtn glyph={__UI.Glyph.prev} title="Previous track (replay)" color="ink" onClick={onPrev} disabled={!hasPrev} />
+      <__UI.IconBtn glyph={__UI.Glyph.next} title="Next track" color="pink" onClick={onNext} disabled={!hasNext && !isLive} />
+      <div className="np-title-wrap" ref={wrapRef}>
+        <div className={`np-title ${overflow ? "is-marquee" : ""} ${isLive ? "" : "is-dim"}`} ref={titleRef}>
+          <span className="np-title-text">{titleText}</span>
+          {overflow ? <span className="np-title-text np-title-clone" aria-hidden> &nbsp; · · · &nbsp; {titleText}</span> : null}
+        </div>
+      </div>
+      <div className="np-meta">
+        {current ? (
+          <>
+            <span className="src-tag" data-src={current.source}>{current.source === "yt" ? "YouTube" : "Bilibili"}</span>
+            <span className="np-by">{current.addedBy.emoji} {current.addedBy.name}</span>
+          </>
+        ) : <span className="np-by np-dim">paste a link → queue → sing</span>}
+      </div>
+    </div>
+  );
+}
+
+function UsersStrip({ users, meId }) {
+  const list = Object.entries(users || {})
+    .filter(([id, u]) => Date.now() - (u.lastSeen || 0) < 60000)
+    .sort((a, b) => (a[0] === meId ? -1 : (b[0] === meId ? 1 : 0)));
+  return (
+    <div className="users-strip">
+      <span className="users-label">ONLINE</span>
+      <div className="users-list">
+        {list.length === 0 ? <span className="users-empty">— solo session —</span> :
+          list.map(([id, u]) => (
+            <div key={id} className={`user-chip ${id === meId ? "is-me" : ""}`} title={u.name}>
+              <span className="user-emoji">{u.emoji}</span>
+              <span className="user-name">{u.name}{id === meId ? " (you)" : ""}</span>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function RoomBadge({ slug }) {
+  const [showQR, setShowQR] = React.useState(false);
+  const url = window.location.href;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&bgcolor=ff2ea6&color=070016&data=${encodeURIComponent(url)}`;
+  return (
+    <div className="room-badge">
+      <button className="room-btn" onClick={() => setShowQR(true)}>
+        <span className="room-tag">ROOM</span>
+        <span className="room-slug">{slug}</span>
+        <span className="room-qr-icon">⌘</span>
+      </button>
+      {showQR && (
+        <div className="sheet-overlay" onClick={() => setShowQR(false)}>
+          <div className="sheet sheet-qr" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-head">
+              <h3 className="neon-text" style={{ color: "var(--neon-cyan)" }}>SHARE ROOM</h3>
+              <button className="sheet-x" onClick={() => setShowQR(false)}>×</button>
+            </div>
+            <div className="sheet-body sheet-qr-body">
+              <p className="qr-hint">Scan or share the link — friends drop into the same room.</p>
+              <div className="qr-frame neon-edge">
+                <img src={qrSrc} alt="room qr" width="240" height="240" style={{display:"block",borderRadius:"6px"}} />
+              </div>
+              <div className="qr-url-row">
+                <code className="qr-url">{url}</code>
+                <__UI.NeonButton accent="cyan" size="sm" onClick={() => { navigator.clipboard.writeText(url); }}>COPY</__UI.NeonButton>
+              </div>
+              <div className="qr-slug">ROOM · <b>{slug}</b></div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryList({ items, onReadd }) {
+  if (!items || items.length === 0) return <div className="empty">No songs sung yet ✦</div>;
+  return (
+    <div className="hist-list">
+      {items.slice().reverse().map((s, idx) => (
+        <div className="hist-row" key={s.id + ":" + (s.finishedAt || 0)}>
+          <div className="hist-num">{(items.length - idx).toString().padStart(2, "0")}</div>
+          <div className="hist-meta">
+            <div className="hist-title">{s.title}</div>
+            <div className="hist-sub">
+              <span className="q-emoji">{s.addedBy.emoji}</span>
+              <span>{s.addedBy.name}</span>
+              <span className="q-dot">·</span>
+              <span>{__UI.ago(s.finishedAt || s.addedAt)}</span>
+              <span className="src-tag" data-src={s.source}>{s.source === "yt" ? "YT" : "Bili"}</span>
+            </div>
+          </div>
+          <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Layout segmented switcher (sits in topbar)
+function LayoutSwitch({ value, onChange }) {
+  return (
+    <div className="lay-switch">
+      {LAYOUTS.map((l) => (
+        <button key={l.id} className={`lay-pill ${value === l.id ? "is-on" : ""}`}
+          onClick={() => onChange(l.id)}>
+          {l.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FloatingQR({ slug }) {
+  const [open, setOpen] = React.useState(false);
+  const url = window.location.href;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&bgcolor=ff2ea6&color=070016&data=${encodeURIComponent(url)}`;
+  return (
+    <>
+      <button className="fab-qr" title="Show room QR" onClick={() => setOpen((v) => !v)}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" /><path d="M14 14h3v3h-3zM20 14v3M14 20h3M17 17h4v4" />
+        </svg>
+      </button>
+      {open && (
+        <div className="fab-qr-pop" onClick={() => setOpen(false)}>
+          <div className="fab-qr-card" onClick={(e) => e.stopPropagation()}>
+            <div className="fab-qr-head">
+              <span className="neon-text" style={{color:"var(--neon-cyan)"}}>SCAN TO JOIN</span>
+              <button className="sheet-x" onClick={() => setOpen(false)}>×</button>
+            </div>
+            <div className="fab-qr-body">
+              <img src={qrSrc} alt="qr" width="260" height="260" style={{display:"block",borderRadius:"6px"}} />
+              <code className="qr-url">{url}</code>
+              <div className="qr-slug">ROOM · <b>{slug}</b></div>
+              <__UI.NeonButton accent="cyan" size="sm" onClick={() => navigator.clipboard.writeText(url)}>COPY LINK</__UI.NeonButton>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function App() {
+  const [room, updateRoom] = __useRoom();
+  const [me, updateMe] = __useMe();
+  __useHB(me, room, updateRoom);
+
+  // Locked aesthetic — orbitron / cyber / comfy
+  React.useEffect(() => {
+    document.body.dataset.theme = "cyber";
+    document.body.dataset.density = "comfy";
+    document.body.dataset.font = "display";
+  }, []);
+
+  const [layout, setLayout] = React.useState(() => localStorage.getItem("ktv:layout") || "split");
+  React.useEffect(() => { document.body.dataset.layout = layout; localStorage.setItem("ktv:layout", layout); }, [layout]);
+
+  const [tab, setTab] = React.useState("queue");
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [showOnboard, setShowOnboard] = React.useState(!me.configured);
+
+  const addSong = (song) => {
+    updateRoom((prev) => {
+      const next = { ...prev };
+      if (!prev.current) {
+        next.current = song;
+        next.queue = [...prev.queue];
+      } else {
+        next.queue = [...prev.queue, song];
+      }
+      next.danmaku = [...(prev.danmaku || []), {
+        id: __UI.uid(), ts: Date.now(),
+        text: `★ ${song.addedBy.emoji} ${song.addedBy.name} queued « ${song.title} »`,
+      }].slice(-50);
+      return next;
+    });
+  };
+  const moveSong = (id, delta) => updateRoom((prev) => {
+    const i = prev.queue.findIndex((s) => s.id === id);
+    if (i < 0) return prev;
+    const j = i + delta;
+    if (j < 0 || j >= prev.queue.length) return prev;
+    const q = [...prev.queue]; [q[i], q[j]] = [q[j], q[i]]; return { ...prev, queue: q };
+  });
+  const topSong = (id) => updateRoom((prev) => {
+    const i = prev.queue.findIndex((s) => s.id === id);
+    if (i <= 0) return prev;
+    const q = [...prev.queue]; const [s] = q.splice(i, 1); q.unshift(s); return { ...prev, queue: q };
+  });
+  const deleteSong = (id) => updateRoom((prev) => ({ ...prev, queue: prev.queue.filter((s) => s.id !== id) }));
+  const shuffle = () => updateRoom((prev) => {
+    const q = [...prev.queue];
+    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    return { ...prev, queue: q };
+  });
+  const clearQueue = () => updateRoom((prev) => ({ ...prev, queue: [] }));
+
+  const patchPlayback = (patch, silentSync) => {
+    // Kept as a no-op for backwards compatibility; playback is no longer synced.
+  };
+
+  const advanceQueue = () => updateRoom((prev) => {
+    const finished = prev.current ? { ...prev.current, finishedAt: Date.now() } : null;
+    const [head, ...rest] = prev.queue;
+    return {
+      ...prev, current: head || null, queue: rest,
+      history: finished ? [...(prev.history || []), finished] : (prev.history || []),
+    };
+  });
+  const replayPrev = () => updateRoom((prev) => {
+    if (!prev.history || prev.history.length === 0) return prev;
+    const hist = [...prev.history]; const last = hist.pop();
+    const newQueue = prev.current ? [prev.current, ...prev.queue] : prev.queue;
+    return { ...prev, current: last, queue: newQueue, history: hist };
+  });
+
+  const sendDanmaku = (text) => updateRoom((prev) => ({
+    ...prev,
+    danmaku: [...(prev.danmaku || []), { id: __UI.uid(), ts: Date.now(), text }].slice(-50),
+  }));
+
+  const updateSongMeta = (id, meta) => updateRoom((prev) => {
+    const stamp = (s) => s && s.id === id ? { ...s, ...meta } : s;
+    return { ...prev, current: stamp(prev.current), queue: prev.queue.map(stamp), history: (prev.history || []).map(stamp) };
+  });
+
+  if (showOnboard) {
+    return (
+      <__UI.Onboarding
+        onDone={(p) => { updateMe({ ...p, configured: true }); setShowOnboard(false); }}
+        onAnonymous={() => { updateMe({ name: "Anonymous", emoji: "👤", anonymous: true, configured: true }); setShowOnboard(false); }}
+      />
+    );
+  }
+
+  const playback = room.playback || { seq: 0 };
+  const current = room.current;
+
+  return (
+    <div className={`shell layout-${layout}`}>
+      <FloatingQR slug={__SLUG} />
+      <DanmakuLayer items={room.danmaku} />
+
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-logo neon-text">NEON KTV</div>
+          <div className="brand-mono">// signal {String((playback.seq||0)%999).padStart(3,"0")} // room synced</div>
+        </div>
+        <div className="topbar-right">
+          <LayoutSwitch value={layout} onChange={setLayout} />
+          <RoomBadge slug={__SLUG} />
+          <button className="me-chip" onClick={() => setShowProfile(true)}>
+            <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>
+            <span className="me-name">{me.anonymous ? "Anonymous" : (me.name || "Unnamed")}</span>
+            <span className="me-edit">EDIT ›</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="stage">
+        <section className="player-col">
+          <div className="screen neon-edge">
+            <window.KTV.Player
+              song={current}
+              onMeta={(m) => current && updateSongMeta(current.id, m)}
+              danmakuItems={room.danmaku}
+            />
+          </div>
+          <NowPlayingBar current={current} hasPrev={(room.history || []).length > 0} hasNext={(room.queue || []).length > 0 || !!current} onNext={advanceQueue} onPrev={replayPrev} />
+          <DanmakuComposer onSend={sendDanmaku} />
+          <UsersStrip users={room.users} meId={me.id} />
+        </section>
+
+        <section className="side-col">
+          <__UI.AddSongInput onAdd={addSong} me={me} />
+          <div className="tabs">
+            <button className={`tab ${tab === "queue" ? "is-on" : ""}`} onClick={() => setTab("queue")}>
+              QUEUE <span className="tab-count">{room.queue.length}</span>
+            </button>
+            <button className={`tab ${tab === "history" ? "is-on" : ""}`} onClick={() => setTab("history")}>
+              HISTORY <span className="tab-count">{(room.history || []).length}</span>
+            </button>
+            <div className="tab-tools">
+              {tab === "queue" && (
+                <>
+                  <__UI.IconBtn glyph={__UI.Glyph.shuffle} title="Shuffle" color="cyan" onClick={shuffle} disabled={room.queue.length < 2} />
+                  <button className="tab-clear" title="Clear queue" onClick={() => { if (window.confirm("Clear all upcoming songs?")) clearQueue(); }} disabled={room.queue.length === 0}>CLEAR</button>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="list-scroll scrollbar">
+            {tab === "queue" ? (
+              room.queue.length === 0 ? (
+                <div className="empty">{current ? "Queue empty — drop more links ♪" : "Paste a link to start the night ♪"}</div>
+              ) : (
+                room.queue.map((s, i) => (
+                  <__UI.QueueRow key={s.id} song={s} idx={i} total={room.queue.length} isCurrent={false}
+                    onTop={topSong} onUp={(id) => moveSong(id, -1)} onDown={(id) => moveSong(id, 1)} onDelete={deleteSong} />
+                ))
+              )
+            ) : (
+              <HistoryList items={room.history} onReadd={(s) => addSong({ ...s, id: __UI.uid(), addedAt: Date.now() })} />
+            )}
+          </div>
+        </section>
+      </main>
+
+      {showProfile && (
+        <__UI.ProfileSheet me={me} onUpdate={updateMe} onClose={() => setShowProfile(false)} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);

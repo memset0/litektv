@@ -139,27 +139,31 @@ export function embedUrl(
   if (song.source === "bili") {
     const isBV = String(song.videoId).startsWith("BV");
     const idParam = isBV ? `bvid=${song.videoId}` : `aid=${song.videoId.replace(/^av/, "")}`;
-    // Page selector priority — cid > p > default 1.
-    // Bilibili's player.html honors &cid=N (the per-page content id from
-    // /x/web-interface/view's pages[]) consistently across devices. The
-    // legacy &page=N parameter has been observed to silently fall back
-    // to P1 on at least mobile, so we no longer emit it. For older queue
-    // rows that pre-date the cid-extraction backend change, we fall back
-    // to &p=N — the parameter Bilibili's WATCH page itself uses, and
-    // the user's expressed intent in their pasted URL.
-    const pageSelector = song.cid
-      ? `cid=${song.cid}`
-      : `p=${song.page || 1}`;
-    const params = [
-      idParam,
-      pageSelector,
+    // Page selector — emit BOTH `cid=N` AND `p=N`, because the two players
+    // we ride on have different ideas about which one to honor:
+    //
+    //   * Desktop UA → player.html (the URL we hit) keeps loading itself
+    //     and uses `cid=N` reliably.
+    //   * Mobile UA  → player.html's inline JS detects the UA, redirects
+    //     to www.bilibili.com/blackboard/webplayer/mbplayer.html with the
+    //     same querystring, and that mobile player ignores `cid=` and
+    //     selects the page from `p=N` instead. (Verified May 2026 by
+    //     reading player.html's UA-branch source.)
+    //
+    // Sending both keeps the URL self-describing and works on both. The
+    // legacy `page=N` parameter is dropped — desktop honors cid, mobile
+    // honors p, neither needs page anymore.
+    const params: string[] = [idParam];
+    if (song.cid) params.push(`cid=${song.cid}`);
+    params.push(`p=${song.page || 1}`);
+    params.push(
       `autoplay=${autoplay ? 1 : 0}`,
       `t=${Math.floor(startSec || 0)}`,
       `high_quality=1`,
       `danmaku=0`,
       `as_wide=1`,
-    ].join("&");
-    return `https://player.bilibili.com/player.html?${params}`;
+    );
+    return `https://player.bilibili.com/player.html?${params.join("&")}`;
   }
   return "about:blank";
 }

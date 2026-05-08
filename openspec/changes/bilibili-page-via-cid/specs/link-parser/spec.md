@@ -26,20 +26,20 @@ The field SHALL NOT be set for YouTube sources.
 - **WHEN** the request body is `{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`
 - **THEN** the response SHALL NOT carry a `cid` field
 
-### Requirement: Embed URL prefers cid over page for Bilibili playback
+### Requirement: Embed URL emits both cid and p for Bilibili playback
 
-The frontend's `embedUrl(song)` helper SHALL build Bilibili player iframe URLs with the most precise page-selector parameter the song record carries. Specifically, in priority order:
+The frontend's `embedUrl(song)` helper SHALL build Bilibili player iframe URLs that carry **both** the per-page `cid` (when known) AND `p=${song.page || 1}`. The two parameters are required because the two Bilibili players we transitively load have different selectors:
 
-1. If `song.cid` is set (non-zero, non-undefined), the URL SHALL include `&cid=${song.cid}` and SHALL NOT include `&p=` or `&page=`.
-2. Otherwise, the URL SHALL include `&p=${song.page || 1}` and SHALL NOT include `&page=` (the legacy `page=N` parameter is dropped because Bilibili's current player no longer honors it reliably).
+- The desktop player at `player.bilibili.com/player.html` honors `cid=N` reliably and ignores `p=` for selection.
+- On mobile UAs (`AppleWebKit.*Mobile.*`), `player.html`'s inline JS redirects to `www.bilibili.com/blackboard/webplayer/mbplayer.html` with the same querystring. The mobile player ignores `cid=` and selects the page from `p=N` instead.
 
-The `bvid` / `aid` parameter is unchanged and accompanies whichever selector is used.
+The legacy `page=N` parameter SHALL NOT be emitted — desktop reads `cid=`, mobile reads `p=`, neither needs `page=`. The `bvid` / `aid` parameter is unchanged.
 
 #### Scenario: Song record has cid
 
 - **WHEN** `embedUrl({source:"bili", videoId:"BV1TN4y187xe", page:4, cid:1234567})` is called
-- **THEN** the returned URL SHALL contain `bvid=BV1TN4y187xe` AND `cid=1234567`
-- **AND** the URL SHALL NOT contain `p=` or `page=`
+- **THEN** the returned URL SHALL contain `bvid=BV1TN4y187xe`, `cid=1234567`, AND `p=4`
+- **AND** the URL SHALL NOT contain `page=`
 
 #### Scenario: Song record lacks cid (legacy data)
 
@@ -51,3 +51,4 @@ The `bvid` / `aid` parameter is unchanged and accompanies whichever selector is 
 
 - **WHEN** `embedUrl({source:"bili", videoId:"BV1uv411q7Mv"})` is called (no `page`, no `cid`)
 - **THEN** the returned URL SHALL contain `bvid=BV1uv411q7Mv` AND `p=1` (default)
+- **AND** the URL SHALL NOT contain `cid=` or `page=`

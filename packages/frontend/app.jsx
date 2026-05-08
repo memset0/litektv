@@ -128,7 +128,7 @@ function RoomBadge({ slug }) {
               </div>
               <div className="qr-url-row">
                 <code className="qr-url">{url}</code>
-                <__UI.NeonButton accent="pink" size="sm" onClick={() => { navigator.clipboard.writeText(url); }}>COPY</__UI.NeonButton>
+                <__UI.NeonButton accent="cyan" size="sm" onClick={() => { navigator.clipboard.writeText(url); }}>COPY</__UI.NeonButton>
               </div>
               <div className="qr-slug">ROOM · <b>{slug}</b></div>
             </div>
@@ -191,7 +191,7 @@ function FloatingQR({ slug }) {
               <img src={qrSrc} alt="qr" width="260" height="260" style={{display:"block",borderRadius:"6px"}} />
               <code className="qr-url">{url}</code>
               <div className="qr-slug">ROOM · <b>{slug}</b></div>
-              <__UI.NeonButton accent="pink" size="sm" onClick={() => navigator.clipboard.writeText(url)}>COPY LINK</__UI.NeonButton>
+              <__UI.NeonButton accent="cyan" size="sm" onClick={() => navigator.clipboard.writeText(url)}>COPY LINK</__UI.NeonButton>
             </div>
           </div>
         </div>

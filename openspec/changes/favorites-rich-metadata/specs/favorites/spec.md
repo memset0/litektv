@@ -47,29 +47,40 @@ The backend SHALL accept `{type:"favorite.remove", source, videoId, page}` and S
 - **WHEN** the user clicks the trash icon on a catalog row, confirms, and the client sends `{type:"favorite.remove", source, videoId, page}`
 - **THEN** the row SHALL be deleted, every connected client SHALL receive a `favorites` snapshot without that entry, and the catalog modal SHALL re-render without it
 
-### Requirement: Structured-title display only when all three manual fields are set
+### Requirement: Structured-title display when displayTitle and authors are set; mode is implicit
 
 The frontend SHALL provide a single helper, used by every UI site that renders a song title (queue rows, history rows, catalog rows, now-playing bar), that decides between the structured form and the raw title for a given song.
 
-The structured form SHALL be used **only when** the song's `(source, videoId, page)` is present in the global favorites snapshot AND that favorite row has **all three** of `displayTitle` (non-empty string), `authors` (array with ≥1 entry), and `mode` (`"instr"` or `"vocal"`) populated. If any one of the three is missing — or the song is not favorited — the helper SHALL return the raw `song.title` unchanged.
+The structured form SHALL be used when the song's `(source, videoId, page)` is present in the global favorites snapshot AND that favorite row has **both** `displayTitle` (non-empty string) AND `authors` (array with ≥1 entry) populated. If either is missing — or the song is not favorited — the helper SHALL return the raw `song.title` unchanged.
 
 The structured form SHALL be:
 
-`[伴奏|原唱] · [displayTitle] · [作者1, 作者2, ...]`
+- `mode === "vocal"`               → `<authors> - <displayTitle>（原唱）`
+- `mode === "instr"` / absent / null → `<authors> - <displayTitle>` (no suffix)
 
-with `mode="instr"` rendered as `伴奏`, `mode="vocal"` as `原唱`, and `authors` joined by `, `.
+`<authors>` is the `authors` array joined by `, ` (Chinese-friendly comma + space). The implicit default is 伴奏 (instrumental / karaoke) — most rows in the catalog are 伴奏, so the absence of any suffix is the default visual; only 原唱 carries the explicit `（原唱）` marker.
 
 The helper SHALL NOT mutate the underlying `Song` or `Favorite` records.
 
-#### Scenario: All three fields populated
+#### Scenario: displayTitle + authors with mode=instr
 
 - **WHEN** a favorite has `displayTitle="小镇姑娘"`, `authors=["陶喆"]`, `mode="instr"`
-- **THEN** every UI site rendering this song SHALL show `伴奏 · 小镇姑娘 · 陶喆`
+- **THEN** every UI site rendering this song SHALL show `陶喆 - 小镇姑娘` (no suffix)
 
-#### Scenario: One field missing falls back to raw title
+#### Scenario: displayTitle + authors with mode=vocal
 
-- **WHEN** a favorite has `displayTitle="小镇姑娘"` and `authors=["陶喆"]` but `mode` is absent
-- **THEN** the rendered title SHALL equal `song.title` exactly — NOT a partial structured form
+- **WHEN** a favorite has `displayTitle="咸咸的2.0"`, `authors=["洛天依","Sodatune"]`, `mode="vocal"`
+- **THEN** the rendered title SHALL be `洛天依, Sodatune - 咸咸的2.0（原唱）`
+
+#### Scenario: displayTitle + authors with mode absent (defaults to 伴奏)
+
+- **WHEN** a favorite has `displayTitle="鬼迷心窍"`, `authors=["李宗盛"]`, no `mode`
+- **THEN** the rendered title SHALL be `李宗盛 - 鬼迷心窍` (no suffix; mode defaults to instr)
+
+#### Scenario: authors missing falls back to raw title
+
+- **WHEN** a favorite has `displayTitle="小镇姑娘"` only (no authors)
+- **THEN** the rendered title SHALL equal `song.title` exactly
 
 #### Scenario: Non-favorited song uses raw title
 

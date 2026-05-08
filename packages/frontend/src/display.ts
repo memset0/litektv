@@ -1,11 +1,17 @@
 // display.ts — single helper that decides between the structured form and
-// the raw imported title for any rendered song. Per the favorites capability:
+// the raw imported title for any rendered song.
+//
+// Rendering rule (per the favorites capability):
 //
 //   - If the song is in the global favorites snapshot AND that favorite has
-//     ALL THREE manual-metadata fields populated (`displayTitle` non-empty,
-//     `authors` length ≥ 1, `mode` ∈ {"instr","vocal"}) → render
-//     `[伴奏|原唱] · [displayTitle] · [author1, author2, ...]`.
-//   - Otherwise → render the raw `song.title` exactly as today.
+//     `displayTitle` non-empty AND `authors.length ≥ 1`, render the
+//     **structured form**:
+//       - `mode` absent / "instr"  → `<authors> - <displayTitle>`
+//         (伴奏 is the default for KTV use; no explicit suffix.)
+//       - `mode === "vocal"`        → `<authors> - <displayTitle>（原唱）`
+//     Multiple authors join with `, `.
+//   - Otherwise (not favorited, or missing displayTitle / authors) → render
+//     the raw `song.title` unchanged.
 //
 // The helper is a pure render-time function. It does not mutate any record.
 
@@ -33,11 +39,6 @@ function keyOf(song: SongLike): string | null {
   return `${song.source}|${song.videoId}|${page}`;
 }
 
-const MODE_LABEL: Record<"instr" | "vocal", string> = {
-  instr: "伴奏",
-  vocal: "原唱",
-};
-
 export function formatSongTitle(
   song: SongLike,
   favs: Map<string, Favorite>,
@@ -48,9 +49,13 @@ export function formatSongTitle(
   const fav = favs.get(k);
   if (!fav) return raw;
   const dt = typeof fav.displayTitle === "string" ? fav.displayTitle.trim() : "";
-  const authors = Array.isArray(fav.authors) ? fav.authors.filter((a) => !!a && a.length > 0) : [];
-  const mode = fav.mode === "instr" || fav.mode === "vocal" ? fav.mode : null;
-  // ALL THREE must be populated. Any missing piece falls through to raw.
-  if (!dt || authors.length === 0 || !mode) return raw;
-  return `${MODE_LABEL[mode]} · ${dt} · ${authors.join(", ")}`;
+  const authors = Array.isArray(fav.authors)
+    ? fav.authors.filter((a) => !!a && a.length > 0)
+    : [];
+  // displayTitle + authors are required for the structured form. mode is
+  // optional: only "vocal" adds the （原唱）suffix; "instr" / null / undefined
+  // are the implicit default and render with no suffix.
+  if (!dt || authors.length === 0) return raw;
+  const base = `${authors.join(", ")} - ${dt}`;
+  return fav.mode === "vocal" ? `${base}（原唱）` : base;
 }

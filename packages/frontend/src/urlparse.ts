@@ -139,31 +139,41 @@ export function embedUrl(
   if (song.source === "bili") {
     const isBV = String(song.videoId).startsWith("BV");
     const idParam = isBV ? `bvid=${song.videoId}` : `aid=${song.videoId.replace(/^av/, "")}`;
-    // Page selector — emit BOTH `cid=N` AND `p=N`, because the two players
-    // we ride on have different ideas about which one to honor:
+    // Pick a single page-selector based on UA + what the song record
+    // carries. Reading player.bilibili.com/player.html's inline JS, the
+    // Bilibili player branches on `/AppleWebKit.*Mobile.*/`:
+    //   * Desktop stays on player.html and reads `cid=N` reliably; the
+    //     legacy `page=N` parameter has been verified to also work here.
+    //   * Mobile redirects to www.bilibili.com/blackboard/webplayer/
+    //     mbplayer.html and selects the page from `p=N` only (it ignores
+    //     `cid=` and explicitly converts an incoming `page` to `p`).
     //
-    //   * Desktop UA → player.html (the URL we hit) keeps loading itself
-    //     and uses `cid=N` reliably.
-    //   * Mobile UA  → player.html's inline JS detects the UA, redirects
-    //     to www.bilibili.com/blackboard/webplayer/mbplayer.html with the
-    //     same querystring, and that mobile player ignores `cid=` and
-    //     selects the page from `p=N` instead. (Verified May 2026 by
-    //     reading player.html's UA-branch source.)
-    //
-    // Sending both keeps the URL self-describing and works on both. The
-    // legacy `page=N` parameter is dropped — desktop honors cid, mobile
-    // honors p, neither needs page anymore.
-    const params: string[] = [idParam];
-    if (song.cid) params.push(`cid=${song.cid}`);
-    params.push(`p=${song.page || 1}`);
-    params.push(
+    // So:
+    //   * mobile → `p=N`
+    //   * desktop + cid → `cid=N` (most precise)
+    //   * desktop + no cid → `page=N` (legacy verified-working path
+    //     for queue rows that pre-date cid extraction)
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /AppleWebKit.*Mobile.*/.test(navigator.userAgent);
+    let pageSelector: string;
+    if (isMobile) {
+      pageSelector = `p=${song.page || 1}`;
+    } else if (song.cid) {
+      pageSelector = `cid=${song.cid}`;
+    } else {
+      pageSelector = `page=${song.page || 1}`;
+    }
+    const params = [
+      idParam,
+      pageSelector,
       `autoplay=${autoplay ? 1 : 0}`,
       `t=${Math.floor(startSec || 0)}`,
       `high_quality=1`,
       `danmaku=0`,
       `as_wide=1`,
-    );
-    return `https://player.bilibili.com/player.html?${params.join("&")}`;
+    ].join("&");
+    return `https://player.bilibili.com/player.html?${params}`;
   }
   return "about:blank";
 }

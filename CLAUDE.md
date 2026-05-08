@@ -48,3 +48,15 @@ When pushing, push ONLY the commits you made in this session. Concrete recipe:
 Only stage files YOU modified in the current task. Never use `git add -A` or `git add .` blindly — multiple Claude Code instances (or the user themselves) may be editing this repo at the same time, and unrelated in-progress work (e.g. an OpenSpec change proposal still being authored in another window) must NOT get swept into your commit. Stage files explicitly by path.
 
 After staging and BEFORE `git commit`, run `git diff --cached --stat` and confirm every file in the staged set corresponds to an edit you actually made. The index may already contain stale deletions or modifications left over from a concurrent session — staging by explicit path does NOT prevent those from riding along.
+
+## Restart the systemd unit after backend changes
+
+The deployed backend runs as `litektv.service` on this same box (Caddy → 127.0.0.1:38117). The unit serves the **compiled** `packages/backend/dist/index.js` plus the static frontend files on disk, so:
+
+- After ANY backend code change (`packages/backend/src/**`), you MUST run `pnpm --dir packages/backend build` and then `systemctl restart litektv.service` so the new bytecode is actually live. Without the restart, the user is still hitting the old backend regardless of what you committed.
+- After ANY frontend change (`packages/frontend/**`), the file on disk is what's served, so a hard browser reload (Cmd-Shift-R) is enough — no restart needed. But if you also touched the backend in the same session, restart anyway.
+- After a schema change in `db.ts` or new fields in WS messages, the restart is load-bearing — `initDb()` only runs `CREATE TABLE IF NOT EXISTS` on boot, and an old running process won't pick up new tables / new schema branches until it restarts.
+
+This applies to every code agent working on this repo — Claude Code, agents spawned via `Agent`, parallel Claude instances, etc. If you're not sure whether the unit is running or which version it's running, `systemctl status litektv.service` shows the pid and start time. Confirm the start time is **after** your last `pnpm build`.
+
+If the user reports a feature you just shipped "not working" and you can't reproduce it locally, before digging in: check `systemctl status litektv.service` for an old `Active: ... since` timestamp. A stale unit is the single most common cause of "I deployed it but the user still sees the old behaviour".

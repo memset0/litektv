@@ -1007,6 +1007,26 @@
   /* keep a usable name length without pushing past the row */
   .me-name { max-width: 90px; }
   .users-strip { gap: 8px; padding: 6px 10px; }
+
+  /* Floating QR fab is for "scan to share with someone in the room with
+   * you" — but a phone IS the thing that scans, so on mobile the fab is
+   * dead weight in the thumb zone. The topbar room badge popup remains
+   * as the share affordance. */
+  .fab-qr { display: none; }
+
+  /* The sidebar toggle swaps between two side-by-side columns, but the
+   * single-column layout above already collapses the panel below the
+   * player — the toggle has no effect on mobile, so hide it. */
+  .sidebar-toggle { display: none; }
+
+  /* On desktop the side column has a fixed max-height and `.list-scroll`
+   * `flex: 1` makes it fill that height (so a long queue scrolls within
+   * a fixed viewport region). On mobile the side column is content-height
+   * (max-height: none above), so flex-growing the list-scroll just pushes
+   * the empty placeholder into the visual middle of the screen. Anchor
+   * the empty state to the top instead. */
+  .list-scroll { flex: 0 0 auto; }
+  .empty { padding: 24px 12px; margin-top: 4px; }
 }
 
 /* phones (≤ 480px) — tighten cards / rows so nothing pokes past the viewport */

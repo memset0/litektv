@@ -219,12 +219,11 @@ async function finalizeMeta(ref: NormalizedRef): Promise<ParsedSongMeta> {
     videoId: ref.videoId,
     page: ref.source === "bili" ? ref.page ?? 1 : undefined,
     title: meta.title ?? `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`,
-    thumb: meta.thumb ?? null,
+    // Always return a same-origin proxy URL (handled by the thumbnail-cache
+    // capability at /api/thumb). The upstream metadata fetch may also return a
+    // raw CDN URL; we ignore it in favor of the proxy so callers never have to
+    // think about CDN quirks (Bilibili http://, hot-link policies, etc.).
+    thumb: `/api/thumb?source=${ref.source}&id=${encodeURIComponent(ref.videoId)}`,
     duration: meta.duration,
   };
-}
-
-export function thumbUrlFor(source: Source, id: string): string | null {
-  if (source === "yt") return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-  return null;
 }

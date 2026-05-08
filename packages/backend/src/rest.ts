@@ -1,8 +1,9 @@
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import { config } from "./config.js";
-import { parseLink, parseRef, thumbUrlFor } from "./parser.js";
+import { parseLink, parseRef } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
+import { getOrFetchThumb } from "./thumbnailCache.js";
 
 const parseLimiter = new RateLimiter(config.rateLimits.parse.perMinute);
 
@@ -64,10 +65,10 @@ export function createRestRouter(): express.Router {
     }
   });
 
-  r.get("/api/thumb", (req: Request, res: Response) => {
+  r.get("/api/thumb", async (req: Request, res: Response) => {
     const source = req.query.source;
     const id = req.query.id;
-    if (typeof source !== "string" || typeof id !== "string") {
+    if (typeof source !== "string" || typeof id !== "string" || !id) {
       res.status(400).json({ error: "missing source/id" });
       return;
     }
@@ -75,13 +76,19 @@ export function createRestRouter(): express.Router {
       res.status(400).json({ error: "bad source" });
       return;
     }
-    const target = thumbUrlFor(source, id);
-    if (!target) {
-      res.status(404).json({ error: "no thumb url for source" });
+    if (id.length > 64) {
+      res.status(400).json({ error: "id too long" });
       return;
     }
-    res.setHeader("cache-control", "public, max-age=86400");
-    res.redirect(302, target);
+    try {
+      const cached = await getOrFetchThumb(source, id);
+      res.setHeader("content-type", cached.mime);
+      res.setHeader("cache-control", "public, max-age=86400");
+      res.status(200).end(cached.bytes);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "thumb fetch failed";
+      res.status(502).json({ error: msg });
+    }
   });
 
   return r;

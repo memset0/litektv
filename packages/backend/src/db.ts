@@ -37,6 +37,18 @@ export function initDb(): void {
       PRIMARY KEY (source, video_id, page)
     );
     CREATE INDEX IF NOT EXISTS idx_favorites_added ON favorites(added_at DESC);
+
+    -- Thumbnail cache. Bytes stored as a BLOB so the whole cache survives
+    -- alongside room state in a single backup unit. Cache key is
+    -- (source, video_id); Bilibili's multipart "page" doesn't vary the cover.
+    CREATE TABLE IF NOT EXISTS thumbnails (
+      source     TEXT NOT NULL,
+      video_id   TEXT NOT NULL,
+      mime       TEXT NOT NULL,
+      bytes      BLOB NOT NULL,
+      fetched_at INTEGER NOT NULL,
+      PRIMARY KEY (source, video_id)
+    );
   `);
 }
 
@@ -166,4 +178,45 @@ export function addFavorite(fav: Favorite): { inserted: boolean } {
       fav.addedAt,
     );
   return { inserted: result.changes > 0 };
+}
+
+// ── Thumbnail cache ───────────────────────────────────────────────────────
+
+export interface CachedThumb {
+  mime: string;
+  bytes: Buffer;
+  fetchedAt: number;
+}
+
+interface ThumbRow {
+  mime: string;
+  bytes: Buffer;
+  fetched_at: number;
+}
+
+export function getThumb(source: Source, videoId: string): CachedThumb | null {
+  const row = requireDb()
+    .prepare("SELECT mime, bytes, fetched_at FROM thumbnails WHERE source = ? AND video_id = ?")
+    .get(source, videoId) as ThumbRow | undefined;
+  if (!row) return null;
+  return { mime: row.mime, bytes: row.bytes, fetchedAt: row.fetched_at };
+}
+
+export function putThumb(
+  source: Source,
+  videoId: string,
+  mime: string,
+  bytes: Buffer,
+  fetchedAt: number,
+): void {
+  requireDb()
+    .prepare(
+      `INSERT INTO thumbnails (source, video_id, mime, bytes, fetched_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(source, video_id) DO UPDATE SET
+         mime = excluded.mime,
+         bytes = excluded.bytes,
+         fetched_at = excluded.fetched_at`,
+    )
+    .run(source, videoId, mime, bytes, fetchedAt);
 }

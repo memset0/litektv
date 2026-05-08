@@ -33,3 +33,7 @@ Co-author lines for AI assistants are welcome (e.g. `Co-Authored-By: Claude Opus
 ## Auto commit + push workflow
 
 Whenever a new feature is implemented or a bug is fixed, commit it under a Conventional Commit message (per the section above) AND push immediately. Don't batch unrelated changes into a single commit; one commit per feature/fix.
+
+## Stage only your own changes
+
+Only stage files YOU modified in the current task. Never use `git add -A` or `git add .` blindly — multiple Claude Code instances (or the user themselves) may be editing this repo at the same time, and unrelated in-progress work (e.g. an OpenSpec change proposal still being authored in another window) must NOT get swept into your commit. Stage files explicitly by path.

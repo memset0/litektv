@@ -130,6 +130,17 @@ export function queueTop(room: Room, id: string) {
   bump(room);
 }
 
+export function queueReorder(room: Room, id: string, toIndex: number) {
+  const q = room.state.queue;
+  const idx = q.findIndex((s) => s.id === id);
+  if (idx < 0) return;
+  const clamped = Math.max(0, Math.min(toIndex, q.length - 1));
+  if (clamped === idx) return;
+  const [item] = q.splice(idx, 1);
+  q.splice(clamped, 0, item!);
+  bump(room);
+}
+
 export function queueShuffle(room: Room) {
   const q = room.state.queue;
   for (let i = q.length - 1; i > 0; i--) {

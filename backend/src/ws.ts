@@ -10,6 +10,7 @@ import {
   queueClear,
   queueMove,
   queueRemove,
+  queueReorder,
   queueShuffle,
   queueTop,
   setUser,
@@ -54,6 +55,7 @@ const incoming = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heartbeat") }),
   z.object({ type: z.literal("queue.add"), song: songSchema }),
   z.object({ type: z.literal("queue.move"), id: z.string(), delta: z.union([z.literal(-1), z.literal(1)]) }),
+  z.object({ type: z.literal("queue.reorder"), id: z.string(), toIndex: z.number().int().nonnegative() }),
   z.object({ type: z.literal("queue.top"), id: z.string() }),
   z.object({ type: z.literal("queue.remove"), id: z.string() }),
   z.object({ type: z.literal("queue.shuffle") }),
@@ -184,6 +186,9 @@ function onConnection(ws: WebSocket, slug: string) {
 
       case "queue.move":
         queueMove(room, parsed.id, parsed.delta);
+        return;
+      case "queue.reorder":
+        queueReorder(room, parsed.id, parsed.toIndex);
         return;
       case "queue.top":
         queueTop(room, parsed.id);

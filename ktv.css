@@ -340,11 +340,19 @@
   border-radius: var(--radius);
   transition: border-color 0.15s, transform 0.15s;
   min-width: 0;
+  /* Reserve space for a 2-line title + 1-line sub so rows have a uniform
+   * height regardless of how many lines the title actually takes. */
+  min-height: 84px;
 }
 .q-row:hover { border-color: var(--line-strong); }
 .q-row-active { border-color: var(--neon-pink); box-shadow: 0 0 0 1px var(--neon-pink), 0 0 24px rgba(255, 46, 166, 0.3); }
 
-.q-meta { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.q-meta {
+  min-width: 0;
+  display: flex; flex-direction: column;
+  justify-content: center;  /* vertical center inside the fixed-height row */
+  gap: 4px;
+}
 .q-title {
   font-weight: 600;
   font-size: 13.5px;
@@ -356,6 +364,15 @@
   text-overflow: ellipsis;
   word-break: break-word;
   line-height: 1.35;
+}
+
+/* ── Drag-and-drop wrapper (queue rows) ──────────────────── */
+.q-drag-wrap { cursor: grab; }
+.q-drag-wrap:active { cursor: grabbing; }
+.q-drag-wrap.is-dragging > .q-row { opacity: 0.45; border-style: dashed; }
+.q-drag-wrap.is-drop-target > .q-row {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px var(--neon-cyan), 0 0 18px rgba(44, 245, 255, 0.45);
 }
 .q-sub {
   display: flex; align-items: center; gap: 6px;

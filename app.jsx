@@ -211,16 +211,17 @@ function App() {
   const [tab, setTab] = React.useState("queue");
   const [showProfile, setShowProfile] = React.useState(false);
   const [showOnboard, setShowOnboard] = React.useState(!me.configured);
+  const [draggingId, setDraggingId] = React.useState(null);
+  const [dragOverId, setDragOverId] = React.useState(null);
 
   const addSong = (song) => {
     send({ type: "queue.add", song });
     send({ type: "danmaku", text: `★ ${song.addedBy.emoji} ${song.addedBy.name} queued « ${song.title} »`.slice(0, 80) });
   };
-  const moveSong = (id, delta) => send({ type: "queue.move", id, delta });
+  const reorderSong = (id, toIndex) => send({ type: "queue.reorder", id, toIndex });
   const topSong = (id) => send({ type: "queue.top", id });
   const deleteSong = (id) => send({ type: "queue.remove", id });
   const shuffle = () => send({ type: "queue.shuffle" });
-  const clearQueue = () => send({ type: "queue.clear" });
   const advanceQueue = () => send({ type: "track.next" });
   const replayPrev = () => send({ type: "track.prev" });
   const sendDanmaku = (text) => send({ type: "danmaku", text });
@@ -282,10 +283,7 @@ function App() {
             </button>
             <div className="tab-tools">
               {tab === "queue" && (
-                <>
-                  <__UI.IconBtn glyph={__UI.Glyph.shuffle} title="Shuffle" color="cyan" onClick={shuffle} disabled={room.queue.length < 2} />
-                  <button className="tab-clear" title="Clear queue" onClick={() => { if (window.confirm("Clear all upcoming songs?")) clearQueue(); }} disabled={room.queue.length === 0}>CLEAR</button>
-                </>
+                <__UI.IconBtn glyph={__UI.Glyph.shuffle} title="Shuffle" color="cyan" onClick={shuffle} disabled={room.queue.length < 2} />
               )}
             </div>
           </div>
@@ -294,10 +292,42 @@ function App() {
               room.queue.length === 0 ? (
                 <div className="empty">{current ? "Queue empty — drop more links ♪" : "Paste a link to start the night ♪"}</div>
               ) : (
-                room.queue.map((s, i) => (
-                  <__UI.QueueRow key={s.id} song={s} idx={i} total={room.queue.length} isCurrent={false}
-                    onTop={topSong} onUp={(id) => moveSong(id, -1)} onDown={(id) => moveSong(id, 1)} onDelete={deleteSong} />
-                ))
+                room.queue.map((s, i) => {
+                  const cls = [
+                    "q-drag-wrap",
+                    draggingId === s.id ? "is-dragging" : "",
+                    dragOverId === s.id && draggingId && draggingId !== s.id ? "is-drop-target" : "",
+                  ].filter(Boolean).join(" ");
+                  return (
+                    <div
+                      key={s.id}
+                      className={cls}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        try { e.dataTransfer.setData("text/plain", s.id); } catch {}
+                        setDraggingId(s.id);
+                      }}
+                      onDragOver={(e) => {
+                        if (!draggingId) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOverId !== s.id) setDragOverId(s.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggingId && draggingId !== s.id) {
+                          reorderSong(draggingId, i);
+                        }
+                        setDraggingId(null); setDragOverId(null);
+                      }}
+                      onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
+                    >
+                      <__UI.QueueRow song={s} idx={i} isCurrent={false}
+                        onTop={topSong} onDelete={deleteSong} />
+                    </div>
+                  );
+                })
               )
             ) : (
               <HistoryList items={room.history} onReadd={(s) => addSong({ ...s, id: __UI.uid(), addedAt: Date.now() })} />

@@ -83,7 +83,11 @@ function AddSongInput({ onAdd, me }) {
   );
 }
 
-function QueueRow({ song, idx, total, isCurrent, onTop, onUp, onDown, onDelete }) {
+function QueueRow({ song, idx, isCurrent, onTop, onDelete }) {
+  const askDelete = () => {
+    const ok = window.confirm(`Remove “${song.title}” from the queue?`);
+    if (ok) onDelete(song.id);
+  };
   return (
     <div className={`q-row ${isCurrent ? "q-row-active" : ""}`}>
       <div className="q-meta">
@@ -99,10 +103,8 @@ function QueueRow({ song, idx, total, isCurrent, onTop, onUp, onDown, onDelete }
       <div className="q-actions">
         {!isCurrent && (
           <>
-            <IconBtn glyph={Glyph.top} title="Top" onClick={() => onTop(song.id)} color="cyan" disabled={idx === 0} />
-            <IconBtn glyph={Glyph.up} title="Up" onClick={() => onUp(song.id)} color="ink" disabled={idx === 0} />
-            <IconBtn glyph={Glyph.down} title="Down" onClick={() => onDown(song.id)} color="ink" disabled={idx === total - 1} />
-            <IconBtn glyph={Glyph.trash} title="Remove" onClick={() => onDelete(song.id)} color="pink" />
+            <IconBtn glyph={Glyph.top} title="Move to top" onClick={() => onTop(song.id)} color="cyan" disabled={idx === 0} />
+            <IconBtn glyph={Glyph.trash} title="Remove" onClick={askDelete} color="pink" />
           </>
         )}
       </div>

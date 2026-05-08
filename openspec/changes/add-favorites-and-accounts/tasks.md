@@ -7,10 +7,10 @@
 
 ## 2. Backend parser canonicalization
 
-- [ ] 2.1 In `packages/backend/src/parser.ts`, audit `parseYouTube` and `parseBilibili` to confirm they only read the allowlisted query params (`v`, `p`); add a comment block at the top of the file declaring the allowlist as load-bearing for privacy.
-- [ ] 2.2 Add an exported `parseRef(ref: NormalizedRef): Promise<ParsedSongMeta>` that skips URL extraction/redirect resolution and only runs the metadata fetch path.
-- [ ] 2.3 Update `/api/parse-link` in `packages/backend/src/rest.ts` to accept either `{url}` or `{ref}` and dispatch to `parseLink`/`parseRef` accordingly; reject payloads carrying both.
-- [ ] 2.4 Add a regression test (vitest, new `packages/backend/src/parser.test.ts`) asserting that the spm/vd_source/etc-laden Bilibili URL produces output with no extra fields and that `parseRef` doesn't hit the redirect resolver.
+- [x] 2.1 In `packages/backend/src/parser.ts`, audit `parseYouTube` and `parseBilibili` to confirm they only read the allowlisted query params (`v`, `p`); add a comment block at the top of the file declaring the allowlist as load-bearing for privacy.
+- [x] 2.2 Add an exported `parseRef(ref: NormalizedRef): Promise<ParsedSongMeta>` that skips URL extraction/redirect resolution and only runs the metadata fetch path.
+- [x] 2.3 Update `/api/parse-link` in `packages/backend/src/rest.ts` to accept either `{url}` or `{ref}` and dispatch to `parseLink`/`parseRef` accordingly; reject payloads carrying both.
+- [x] 2.4 Add a regression test (vitest, new `packages/backend/src/parser.test.ts`) asserting that the spm/vd_source/etc-laden Bilibili URL produces output with no extra fields and that `parseRef` doesn't hit the redirect resolver.
 
 ## 3. Backend auth + session handling
 

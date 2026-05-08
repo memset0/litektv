@@ -1,4 +1,21 @@
-import type { ParsedSongMeta, Source } from "./types.js";
+import type { ParsedSongMeta, Source, SongRef } from "./types.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVACY-LOAD-BEARING ALLOWLIST
+//
+// `parseLink` and `parseRef` MUST only ever read these query params from a
+// user-supplied URL:
+//   - YouTube: `v` (the video id)
+//   - Bilibili: `p` (the multipart page index)
+//
+// Every other query param (`spm_id_from`, `vd_source`, `share_source`,
+// `from_spmid`, `is_story_h5`, `si`, `pp`, `t`, ...) is tracking / session
+// data and MUST NOT be persisted, broadcast, logged, or echoed back. The
+// returned ParsedSongMeta therefore only carries `{source, videoId, page?,
+// title, thumb?, duration?}` — never the raw URL or any unrecognized param.
+//
+// See specs/link-parser/spec.md and specs/favorites/spec.md.
+// ─────────────────────────────────────────────────────────────────────────────
 
 const YT_HOSTS = new Set([
   "youtube.com",
@@ -172,6 +189,26 @@ export async function parseLink(rawInput: string): Promise<ParsedSongMeta> {
   }
   if (!ref) throw new Error("unsupported url");
 
+  return finalizeMeta(ref);
+}
+
+/**
+ * Re-fetch metadata for an already-canonical reference. Skips URL
+ * extraction, redirect resolution, and ID pattern scanning. Useful when the
+ * ref came from a stored favorite or a client that already canonicalized.
+ */
+export async function parseRef(ref: SongRef): Promise<ParsedSongMeta> {
+  if (ref.source !== "yt" && ref.source !== "bili") {
+    throw new Error("unsupported source");
+  }
+  if (!ref.videoId || ref.videoId.length > 64) {
+    throw new Error("bad videoId");
+  }
+  const page = ref.source === "bili" ? Math.max(1, ref.page ?? 1) : undefined;
+  return finalizeMeta({ source: ref.source, videoId: ref.videoId, page });
+}
+
+async function finalizeMeta(ref: NormalizedRef): Promise<ParsedSongMeta> {
   const meta =
     ref.source === "yt"
       ? await fetchYouTubeMeta(ref.videoId)

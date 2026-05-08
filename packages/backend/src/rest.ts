@@ -1,15 +1,23 @@
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import { config } from "./config.js";
-import { parseLink, thumbUrlFor } from "./parser.js";
+import { parseLink, parseRef, thumbUrlFor } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
 
 const parseLimiter = new RateLimiter(config.rateLimits.parse.perMinute);
 
-const parseBody = z.object({
-  // Accept raw share text (e.g. "【title】 https://b23.tv/...") — the parser
-  // extracts the URL itself. Cap length so the bucket can't be abused.
+// Accept EITHER raw share text (`url`) OR an already-canonical reference
+// (`ref`). Sending both is rejected so callers pick one path explicitly.
+const parseUrlBody = z.object({
   url: z.string().min(1).max(2048),
+  userId: z.string().min(4).max(64).optional(),
+});
+const parseRefBody = z.object({
+  ref: z.object({
+    source: z.enum(["yt", "bili"]),
+    videoId: z.string().min(1).max(64),
+    page: z.number().int().min(1).optional(),
+  }),
   userId: z.string().min(4).max(64).optional(),
 });
 
@@ -21,18 +29,34 @@ export function createRestRouter(): express.Router {
   });
 
   r.post("/api/parse-link", async (req: Request, res: Response) => {
-    const parsed = parseBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "bad request", detail: parsed.error.flatten() });
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      res.status(400).json({ error: "bad request" });
       return;
     }
-    const key = parsed.data.userId ?? req.ip ?? "anon";
+    if (body.url !== undefined && body.ref !== undefined) {
+      res.status(400).json({ error: "supply either url or ref, not both" });
+      return;
+    }
+    const refBody = body.ref !== undefined ? parseRefBody.safeParse(body) : null;
+    const urlBody = body.ref === undefined ? parseUrlBody.safeParse(body) : null;
+    const validated = refBody ?? urlBody;
+    if (!validated || !validated.success) {
+      res
+        .status(400)
+        .json({ error: "bad request", detail: validated?.error.flatten() });
+      return;
+    }
+    const key = validated.data.userId ?? req.ip ?? "anon";
     if (!parseLimiter.allow(key)) {
       res.status(429).json({ error: "rate limited" });
       return;
     }
     try {
-      const meta = await parseLink(parsed.data.url);
+      const meta =
+        "ref" in validated.data
+          ? await parseRef(validated.data.ref)
+          : await parseLink(validated.data.url);
       res.json(meta);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "parse failed";

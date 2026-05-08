@@ -52,11 +52,18 @@ function AddSongInput({ onAdd, me }) {
     setErr(""); setBusy(true);
     try {
       const parsed = await window.KTV.parseAddSong(val);
+      const ytThumb = parsed.source === "yt" ? `https://i.ytimg.com/vi/${parsed.videoId}/hqdefault.jpg` : null;
       const song = {
-        id: __UI_uid(), ...parsed,
-        title: window.KTV.fallbackTitle(parsed),
-        thumb: parsed.source === "yt" ? `https://i.ytimg.com/vi/${parsed.videoId}/hqdefault.jpg` : null,
-        addedBy: me.anonymous ? { name: "Anonymous", emoji: "👤", anonymous: true } : { id: me.id, name: me.name || "Unnamed", emoji: me.emoji || "🎤" },
+        id: __UI_uid(),
+        source: parsed.source,
+        videoId: parsed.videoId,
+        page: parsed.page,
+        title: parsed.title || window.KTV.fallbackTitle(parsed),
+        thumb: parsed.thumb || ytThumb,
+        duration: parsed.duration,
+        addedBy: me.anonymous
+          ? { name: "Anonymous", emoji: "👤", anonymous: true }
+          : { id: me.id, name: me.name || "Unnamed", emoji: me.emoji || "🎤", anonymous: false },
         addedAt: Date.now(),
       };
       onAdd(song); setVal("");

@@ -1,6 +1,6 @@
 // app.jsx — main App orchestrator (English-only, fixed orbitron / cyber / comfy)
 
-const { useRoom: __useRoom, useMe: __useMe, useHeartbeat: __useHB, SLUG: __SLUG } = window.KTV;
+const { useRoom: __useRoom, useMe: __useMe, SLUG: __SLUG } = window.KTV;
 const __UI = window.KTV.UI;
 
 // ── Page-wide danmaku layer (visible when not fullscreen) ─────────
@@ -197,9 +197,10 @@ function FloatingQR({ slug }) {
 }
 
 function App() {
-  const [room, updateRoom] = __useRoom();
+  // useRoom now returns [serverRoom, send]; mutations go through `send(...)`
+  // and the server broadcasts the canonical state back to every client.
+  const [room, send] = __useRoom();
   const [me, updateMe] = __useMe();
-  __useHB(me, room, updateRoom);
 
   // Locked aesthetic — orbitron / cyber / comfy
   React.useEffect(() => {
@@ -213,69 +214,18 @@ function App() {
   const [showOnboard, setShowOnboard] = React.useState(!me.configured);
 
   const addSong = (song) => {
-    updateRoom((prev) => {
-      const next = { ...prev };
-      if (!prev.current) {
-        next.current = song;
-        next.queue = [...prev.queue];
-      } else {
-        next.queue = [...prev.queue, song];
-      }
-      next.danmaku = [...(prev.danmaku || []), {
-        id: __UI.uid(), ts: Date.now(),
-        text: `★ ${song.addedBy.emoji} ${song.addedBy.name} queued « ${song.title} »`,
-      }].slice(-50);
-      return next;
-    });
+    send({ type: "queue.add", song });
+    send({ type: "danmaku", text: `★ ${song.addedBy.emoji} ${song.addedBy.name} queued « ${song.title} »`.slice(0, 80) });
   };
-  const moveSong = (id, delta) => updateRoom((prev) => {
-    const i = prev.queue.findIndex((s) => s.id === id);
-    if (i < 0) return prev;
-    const j = i + delta;
-    if (j < 0 || j >= prev.queue.length) return prev;
-    const q = [...prev.queue]; [q[i], q[j]] = [q[j], q[i]]; return { ...prev, queue: q };
-  });
-  const topSong = (id) => updateRoom((prev) => {
-    const i = prev.queue.findIndex((s) => s.id === id);
-    if (i <= 0) return prev;
-    const q = [...prev.queue]; const [s] = q.splice(i, 1); q.unshift(s); return { ...prev, queue: q };
-  });
-  const deleteSong = (id) => updateRoom((prev) => ({ ...prev, queue: prev.queue.filter((s) => s.id !== id) }));
-  const shuffle = () => updateRoom((prev) => {
-    const q = [...prev.queue];
-    for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
-    return { ...prev, queue: q };
-  });
-  const clearQueue = () => updateRoom((prev) => ({ ...prev, queue: [] }));
-
-  const patchPlayback = (patch, silentSync) => {
-    // Kept as a no-op for backwards compatibility; playback is no longer synced.
-  };
-
-  const advanceQueue = () => updateRoom((prev) => {
-    const finished = prev.current ? { ...prev.current, finishedAt: Date.now() } : null;
-    const [head, ...rest] = prev.queue;
-    return {
-      ...prev, current: head || null, queue: rest,
-      history: finished ? [...(prev.history || []), finished] : (prev.history || []),
-    };
-  });
-  const replayPrev = () => updateRoom((prev) => {
-    if (!prev.history || prev.history.length === 0) return prev;
-    const hist = [...prev.history]; const last = hist.pop();
-    const newQueue = prev.current ? [prev.current, ...prev.queue] : prev.queue;
-    return { ...prev, current: last, queue: newQueue, history: hist };
-  });
-
-  const sendDanmaku = (text) => updateRoom((prev) => ({
-    ...prev,
-    danmaku: [...(prev.danmaku || []), { id: __UI.uid(), ts: Date.now(), text }].slice(-50),
-  }));
-
-  const updateSongMeta = (id, meta) => updateRoom((prev) => {
-    const stamp = (s) => s && s.id === id ? { ...s, ...meta } : s;
-    return { ...prev, current: stamp(prev.current), queue: prev.queue.map(stamp), history: (prev.history || []).map(stamp) };
-  });
+  const moveSong = (id, delta) => send({ type: "queue.move", id, delta });
+  const topSong = (id) => send({ type: "queue.top", id });
+  const deleteSong = (id) => send({ type: "queue.remove", id });
+  const shuffle = () => send({ type: "queue.shuffle" });
+  const clearQueue = () => send({ type: "queue.clear" });
+  const advanceQueue = () => send({ type: "track.next" });
+  const replayPrev = () => send({ type: "track.prev" });
+  const sendDanmaku = (text) => send({ type: "danmaku", text });
+  const updateSongMeta = (id, meta) => send({ type: "track.meta", id, patch: meta });
 
   if (showOnboard) {
     return (
@@ -286,8 +236,8 @@ function App() {
     );
   }
 
-  const playback = room.playback || { seq: 0 };
   const current = room.current;
+  const signal = String((room.rev || 0) % 999).padStart(3, "0");
 
   return (
     <div className="shell">
@@ -297,7 +247,7 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-logo neon-text">NEON KTV</div>
-          <div className="brand-mono">// signal {String((playback.seq||0)%999).padStart(3,"0")} // room synced</div>
+          <div className="brand-mono">// signal {signal} // room synced</div>
         </div>
         <div className="topbar-right">
           <RoomBadge slug={__SLUG} />

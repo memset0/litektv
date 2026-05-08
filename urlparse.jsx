@@ -47,18 +47,50 @@
     throw new Error("无法解析短链：" + (lastErr ? lastErr.message : "代理不可用") + "（请尝试粘贴完整链接）");
   }
 
+  // Ask the backend to parse + fetch metadata. Same-origin so no CORS hassle
+  // when the page is served by the backend (the production deploy does so).
+  async function parseViaBackend(text) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    let res;
+    try {
+      res = await fetch("/api/parse-link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: text }),
+        signal: ctrl.signal,
+      });
+    } finally { clearTimeout(t); }
+    if (!res.ok) {
+      let detail = "HTTP " + res.status;
+      try { const j = await res.json(); if (j && j.error) detail = j.error; } catch (e) {}
+      throw new Error(detail);
+    }
+    const j = await res.json();
+    return {
+      source: j.source, videoId: j.videoId, page: j.page,
+      title: j.title || null, thumb: j.thumb || null, duration: j.duration,
+      originalUrl: text,
+    };
+  }
+
   async function parseAddSong(text) {
     text = (text || "").trim();
     if (!text) throw new Error("请输入链接");
-    // Direct hit
-    const direct = extractFromText(text);
-    if (direct) return direct;
-    // b23.tv short link → resolve via proxy
-    if (/b23\.tv\//i.test(text) || /^https?:\/\/(www\.)?bili2233\.cn/i.test(text)) {
-      return resolveShortLink(text);
+    // Bilibili share strings come with prefixes like
+    // "【某某 - 哔哩哔哩】 https://b23.tv/xxxx" — pull the URL out first.
+    const urlMatch = text.match(/https?:\/\/[^\s)\]）】"'<>]+/i);
+    const candidate = urlMatch ? urlMatch[0] : text;
+    // Backend is authoritative (follows b23.tv redirects, fetches titles + thumbs).
+    try { return await parseViaBackend(candidate); }
+    catch (e) {
+      const direct = extractFromText(candidate);
+      if (direct) return direct;
+      if (/b23\.tv\//i.test(candidate) || /^https?:\/\/(www\.)?bili2233\.cn/i.test(candidate)) {
+        return resolveShortLink(candidate);
+      }
+      throw new Error(e.message ? "解析失败：" + e.message : "无法识别该链接（仅支持 Bilibili / YouTube）");
     }
-    // YouTube short already handled (youtu.be) above.
-    throw new Error("无法识别该链接（仅支持 Bilibili / YouTube）");
   }
 
   // Generate iframe-ready src for a song

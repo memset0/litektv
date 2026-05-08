@@ -1,8 +1,12 @@
-// state.jsx — shared room state via localStorage + BroadcastChannel
-// Multi-tab in one browser simulates multi-user. Storage events sync across tabs.
+// state.jsx — shared room state via WebSocket to the backend.
+// The backend (with SQLite persistence) is authoritative; we send commands and
+// receive `state` snapshots. NO room state is cached in localStorage.
+// localStorage is used ONLY for the user's own identity (a stable userId so
+// reloads keep the same handle in the room). Everything else comes from the
+// server.
 
 (function () {
-  const SLUG_KEY = "ktv:slug";
+  // Identity-only. NOT used for room state.
   const ME_KEY = "ktv:me";
 
   function getSlug() {
@@ -15,42 +19,32 @@
       url.searchParams.set("room", slug);
       window.history.replaceState({}, "", url.toString());
     }
-    localStorage.setItem(SLUG_KEY, slug);
     return slug;
   }
 
   const SLUG = getSlug();
-  const ROOM_KEY = `ktv:room:${SLUG}`;
-  const CHAN_NAME = `ktv:${SLUG}`;
 
-  // ── Initial room state ──────────────────────────────────────
+  // One-time cleanup: earlier builds cached room state under "ktv:room:<slug>"
+  // and the slug under "ktv:slug". The backend is now the only source of truth,
+  // so wipe any leftovers to avoid confusion when debugging.
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k === "ktv:slug" || k.startsWith("ktv:room:") || k === "ktv:layout")) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (e) {}
+
+  // ── Initial blank room (only used until the first server snapshot arrives) ──
   const blankRoom = () => ({
-    queue: [],         // [{id, source, videoId, originalUrl, title, thumb, addedBy, addedAt, durationGuess}]
-    history: [],       // [{...song, finishedAt}]
-    current: null,     // currently playing song (drained from queue head)
-    playback: {
-      playing: false,
-      // anchor: at wallTime ms, position is at this many seconds
-      wallTime: Date.now(),
-      position: 0,
-      volume: 80,
-      muted: false,
-      // monotonic counter so each tab can detect remote vs self updates
-      seq: 0,
-      writer: null,
-    },
-    users: {},         // {clientId: {name, emoji, anonymous, lastSeen}}
-    danmaku: [],       // [{id, text, ts}]  rolling buffer (last 50)
-    version: 0,
+    slug: SLUG,
+    queue: [], history: [], current: null,
+    users: {}, danmaku: [],
+    rev: 0,
+    // legacy fields some UI bits still read; harmless to keep
+    playback: { seq: 0 },
   });
-
-  function loadRoom() {
-    try {
-      const raw = localStorage.getItem(ROOM_KEY);
-      if (!raw) return blankRoom();
-      return { ...blankRoom(), ...JSON.parse(raw) };
-    } catch (e) { return blankRoom(); }
-  }
 
   // ── Me ──────────────────────────────────────────────────────
   function loadMe() {
@@ -64,89 +58,138 @@
     return me;
   }
 
-  // ── Hook: shared room ───────────────────────────────────────
-  function useRoom() {
-    const [room, setRoom] = React.useState(loadRoom);
-    const channelRef = React.useRef(null);
-    const lastWriteRef = React.useRef(0);
+  // ── Connection singleton ────────────────────────────────────
+  // One WebSocket per page, multiplexed across hooks via subscribers.
+  function makeConnection(slug) {
+    let ws = null;
+    let state = blankRoom();
+    let me = null;
+    let helloed = false;
+    let pending = [];
+    let reconnectTimer = null;
+    const subs = new Set();
 
-    React.useEffect(() => {
-      const chan = ("BroadcastChannel" in window) ? new BroadcastChannel(CHAN_NAME) : null;
-      channelRef.current = chan;
-      const onMsg = (ev) => {
-        if (ev.data && ev.data.type === "room") {
-          setRoom(ev.data.state);
-        }
-      };
-      if (chan) chan.addEventListener("message", onMsg);
-      const onStorage = (ev) => {
-        if (ev.key === ROOM_KEY && ev.newValue) {
-          try { setRoom(JSON.parse(ev.newValue)); } catch (e) {}
-        }
-      };
-      window.addEventListener("storage", onStorage);
-      return () => {
-        if (chan) { chan.removeEventListener("message", onMsg); chan.close(); }
-        window.removeEventListener("storage", onStorage);
-      };
-    }, []);
+    function notify() { for (const fn of subs) { try { fn(state); } catch {} } }
 
-    // Mutator: pass a function (room) => newRoom
-    const update = React.useCallback((mutator) => {
-      setRoom((prev) => {
-        const next = typeof mutator === "function" ? mutator(prev) : mutator;
-        next.version = (prev.version || 0) + 1;
-        try { localStorage.setItem(ROOM_KEY, JSON.stringify(next)); } catch (e) {}
-        if (channelRef.current) {
-          channelRef.current.postMessage({ type: "room", state: next });
+    function buildHello() {
+      if (!me) return null;
+      const display = me.anonymous
+        ? { name: "匿名", emoji: "👤", anonymous: true }
+        : { name: (me.name || "未命名").slice(0, 16), emoji: me.emoji || "🎤", anonymous: false };
+      return { type: "hello", userId: me.id, ...display };
+    }
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const url = `${proto}://${location.host}/ws?room=${encodeURIComponent(slug)}`;
+      try { ws = new WebSocket(url); } catch (e) { scheduleReconnect(); return; }
+
+      ws.addEventListener("open", () => {
+        helloed = false;
+        const hello = buildHello();
+        if (hello) {
+          ws.send(JSON.stringify(hello));
+          helloed = true;
+          for (const m of pending) ws.send(JSON.stringify(m));
+          pending = [];
         }
-        lastWriteRef.current = Date.now();
-        return next;
       });
-    }, []);
+      ws.addEventListener("message", (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === "state" && msg.state) {
+          state = { ...blankRoom(), ...msg.state };
+          notify();
+        }
+      });
+      ws.addEventListener("close", () => { ws = null; helloed = false; scheduleReconnect(); });
+      ws.addEventListener("error", () => { try { ws && ws.close(); } catch {} });
+    }
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 1500);
+    }
 
-    return [room, update];
+    function send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN && helloed) {
+        ws.send(JSON.stringify(msg));
+      } else {
+        pending.push(msg);
+        connect();
+      }
+    }
+
+    function setMe(next) {
+      const prev = me;
+      me = next;
+      if (!prev || !ws || ws.readyState !== WebSocket.OPEN) {
+        // first time or not connected yet — let connect()/open send hello with the current me
+        if (!ws) connect();
+        return;
+      }
+      if (prev.id !== next.id) {
+        // userId changed — reconnect so the server gets a fresh hello
+        try { ws.close(); } catch {}
+        return;
+      }
+      // same user, profile patch
+      const display = next.anonymous
+        ? { name: "匿名", emoji: "👤", anonymous: true }
+        : { name: (next.name || "未命名").slice(0, 16), emoji: next.emoji || "🎤", anonymous: false };
+      try {
+        ws.send(JSON.stringify({ type: "profile.update", ...display }));
+      } catch {}
+    }
+
+    function subscribe(fn) {
+      subs.add(fn);
+      // push the current snapshot synchronously so React state lines up
+      try { fn(state); } catch {}
+      return () => subs.delete(fn);
+    }
+
+    // Heartbeat (keeps presence fresh; spec calls for 20–30s).
+    setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN && helloed) {
+        try { ws.send(JSON.stringify({ type: "heartbeat" })); } catch {}
+      }
+    }, 25000);
+
+    return { send, setMe, subscribe, getState: () => state };
   }
 
-  // ── Hook: me (with rename/avatar) ────────────────────────────
+  const conn = makeConnection(SLUG);
+
+  // ── Hook: shared room ───────────────────────────────────────
+  function useRoom() {
+    const [room, setRoom] = React.useState(() => conn.getState());
+    React.useEffect(() => conn.subscribe(setRoom), []);
+    return [room, conn.send];
+  }
+
+  // ── Hook: me ────────────────────────────────────────────────
   function useMe() {
     const [me, setMe] = React.useState(loadMe);
+    // push the latest me into the connection so hello/profile.update use it
+    React.useEffect(() => { conn.setMe(me); }, [me.id, me.name, me.emoji, me.anonymous]);
     const update = React.useCallback((patch) => {
       setMe((prev) => {
         const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch };
-        localStorage.setItem(ME_KEY, JSON.stringify(next));
+        try { localStorage.setItem(ME_KEY, JSON.stringify(next)); } catch (e) {}
         return next;
       });
     }, []);
     return [me, update];
   }
 
-  // ── Heartbeat: register me in room.users every few seconds ───
-  function useHeartbeat(me, room, updateRoom) {
-    React.useEffect(() => {
-      if (!me) return;
-      const beat = () => {
-        updateRoom((prev) => {
-          const display = me.anonymous ? { name: "匿名", emoji: "👤", anonymous: true } : { name: me.name || "未命名", emoji: me.emoji || "🎤", anonymous: false };
-          return {
-            ...prev,
-            users: {
-              ...prev.users,
-              [me.id]: { ...display, lastSeen: Date.now() },
-            },
-          };
-        });
-      };
-      beat();
-      const t = setInterval(beat, 6000);
-      return () => clearInterval(t);
-    }, [me && me.id, me && me.name, me && me.emoji, me && me.anonymous]);
-  }
+  // Heartbeat is now run inside the connection — keep this no-op so existing
+  // call sites (App.jsx) don't break.
+  function useHeartbeat() { /* no-op: handled by connection */ }
 
   window.KTV = window.KTV || {};
   Object.assign(window.KTV, {
-    SLUG, ROOM_KEY, CHAN_NAME,
-    useRoom, useMe, useHeartbeat,
-    blankRoom,
+    SLUG, useRoom, useMe, useHeartbeat, blankRoom,
+    _conn: conn,
   });
 })();

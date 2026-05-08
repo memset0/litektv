@@ -61,6 +61,8 @@ export interface FavoriteAddedBy {
   emoji: string;
 }
 
+export type FavoriteMode = "instr" | "vocal";
+
 export interface Favorite {
   source: Source;
   videoId: string;
@@ -71,6 +73,34 @@ export interface Favorite {
   /** Who first starred this song (set on insert; not overwritten). */
   addedBy: FavoriteAddedBy | null;
   addedAt: number;
+  /** Operator-curated canonical name (simplified Chinese for CN parts). */
+  displayTitle?: string;
+  /** Operator-curated author list (singer / composer / lyricist / ...). */
+  authors?: string[];
+  /** Operator-curated mode: "instr" = 伴奏, "vocal" = 原唱. */
+  mode?: FavoriteMode;
+}
+
+export type FavoriteAuditOp = "add" | "update" | "remove" | "rollback";
+
+export interface FavoriteAuditActor {
+  id?: string;
+  name?: string;
+  emoji?: string;
+}
+
+export interface FavoriteAuditEntry {
+  id: number;
+  ts: number;
+  op: FavoriteAuditOp;
+  source: Source | null;
+  videoId: string | null;
+  page: number | null;
+  user: FavoriteAuditActor | null;
+  /** Snapshot of the row before the op (null for `add` and `rollback` row-level entries). */
+  before: Favorite | Favorite[] | null;
+  /** Snapshot of the row after the op (null for `remove`). */
+  after: Favorite | Favorite[] | null;
 }
 
 /** Canonical reference to a video, sufficient to re-fetch metadata. */

@@ -4,8 +4,12 @@ import { z } from "zod";
 import { config } from "./config.js";
 import {
   addFavorite,
+  appendFavoriteAudit,
   findFavorite,
   listFavorites,
+  removeFavorite,
+  updateFavorite,
+  type FavoritePatch,
 } from "./db.js";
 import { parseRef } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
@@ -111,6 +115,21 @@ const incoming = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("favorite.add"), song: favoriteAddSongSchema }),
   z.object({ type: z.literal("favorite.list") }),
+  z.object({
+    type: z.literal("favorite.update"),
+    source: z.enum(["yt", "bili"]),
+    videoId: z.string().min(1).max(64),
+    page: z.number().int().min(0).max(99999),
+    displayTitle: z.string().max(300).nullable().optional(),
+    authors: z.array(z.string().min(1).max(100)).max(20).nullable().optional(),
+    mode: z.enum(["instr", "vocal"]).nullable().optional(),
+  }),
+  z.object({
+    type: z.literal("favorite.remove"),
+    source: z.enum(["yt", "bili"]),
+    videoId: z.string().min(1).max(64),
+    page: z.number().int().min(0).max(99999),
+  }),
 ]);
 
 interface ConnState {
@@ -438,7 +457,92 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         addedBy,
         addedAt: now(),
       };
-      addFavorite(row);
+      const result = addFavorite(row);
+      // Only log when this was a real insert. The "first starrer wins"
+      // no-op path is not a state mutation and must NOT pollute the audit.
+      if (result.inserted) {
+        const after = findFavorite(fav.source, fav.videoId, page);
+        appendFavoriteAudit({
+          ts: row.addedAt,
+          op: "add",
+          source: fav.source,
+          videoId: fav.videoId,
+          page,
+          user: addedBy,
+          before: null,
+          after: after ?? row,
+        });
+      }
+      broadcastFavorites();
+      return;
+    }
+
+    case "favorite.update": {
+      if (!favoriteLimiter.allow(s.userId)) {
+        send(ws, { type: "error", error: "rate limited (favorite)" });
+        return;
+      }
+      // Build a patch only from keys that were ACTUALLY present in the
+      // wire message (so omitted fields stay untouched, explicit null
+      // clears the column).
+      const patch: FavoritePatch = {};
+      if ("displayTitle" in parsed) patch.displayTitle = parsed.displayTitle ?? null;
+      if ("authors" in parsed) patch.authors = parsed.authors ?? null;
+      if ("mode" in parsed) patch.mode = parsed.mode ?? null;
+      const { before, after } = updateFavorite(
+        parsed.source,
+        parsed.videoId,
+        parsed.page,
+        patch,
+      );
+      if (!before) {
+        send(ws, { type: "error", error: "unknown favorite" });
+        return;
+      }
+      const presence = s.room.state.users[s.userId];
+      appendFavoriteAudit({
+        ts: now(),
+        op: "update",
+        source: parsed.source,
+        videoId: parsed.videoId,
+        page: parsed.page,
+        user: {
+          id: s.userId,
+          name: presence?.name,
+          emoji: presence?.emoji,
+        },
+        before,
+        after,
+      });
+      broadcastFavorites();
+      return;
+    }
+
+    case "favorite.remove": {
+      if (!favoriteLimiter.allow(s.userId)) {
+        send(ws, { type: "error", error: "rate limited (favorite)" });
+        return;
+      }
+      const before = removeFavorite(parsed.source, parsed.videoId, parsed.page);
+      if (!before) {
+        send(ws, { type: "error", error: "unknown favorite" });
+        return;
+      }
+      const presence = s.room.state.users[s.userId];
+      appendFavoriteAudit({
+        ts: now(),
+        op: "remove",
+        source: parsed.source,
+        videoId: parsed.videoId,
+        page: parsed.page,
+        user: {
+          id: s.userId,
+          name: presence?.name,
+          emoji: presence?.emoji,
+        },
+        before,
+        after: null,
+      });
       broadcastFavorites();
       return;
     }

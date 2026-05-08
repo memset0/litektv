@@ -658,7 +658,7 @@ body[data-density="compact"] .q-row { grid-template-columns: 64px 1fr auto; }
 .sheet-qr-body { align-items: center; }
 .qr-hint { color: var(--ink-dim); font-size: 13px; text-align: center; margin: 0 0 6px; }
 .qr-frame {
-  background: var(--neon-pink);
+  background: #fff;
   padding: 10px;
   border-radius: 14px;
 }

@@ -107,7 +107,7 @@ function UsersStrip({ users, meId }) {
 function RoomBadge({ slug }) {
   const [showQR, setShowQR] = React.useState(false);
   const url = window.location.href;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&bgcolor=ff2ea6&color=070016&data=${encodeURIComponent(url)}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&bgcolor=ffffff&color=070016&data=${encodeURIComponent(url)}`;
   return (
     <div className="room-badge">
       <button className="room-btn" onClick={() => setShowQR(true)}>
@@ -167,7 +167,7 @@ function HistoryList({ items, onReadd }) {
 function FloatingQR({ slug }) {
   const [open, setOpen] = React.useState(false);
   const url = window.location.href;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&bgcolor=ff2ea6&color=070016&data=${encodeURIComponent(url)}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&bgcolor=ffffff&color=070016&data=${encodeURIComponent(url)}`;
   return (
     <>
       <button className="fab-qr" title="Show room QR" onClick={() => setOpen((v) => !v)}>

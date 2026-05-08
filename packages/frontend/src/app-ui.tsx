@@ -1,9 +1,9 @@
 // app-ui.tsx — UI atoms (English).
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Source } from "@litektv/types";
+import type { Favorite, Source } from "@litektv/types";
 import { fallbackTitle, parseAddSong } from "./urlparse";
-import type { Me } from "./state";
+import type { FavoritePatch, Me } from "./state";
 
 const __UI_uid = (): string =>
   "s_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3);
@@ -137,6 +137,11 @@ export const Glyph = {
       <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
     </svg>
   ),
+  pencil: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4" />
+    </svg>
+  ),
   shuffle: (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M16 3h5v5M21 3l-7 7M4 20l7-7M16 21h5v-5M4 4l5 5" />
@@ -242,6 +247,8 @@ interface QueueSong {
   source: Source;
   videoId: string;
   page?: number;
+  /** Bilibili per-page content-id (see `Song.cid` in @litektv/types). */
+  cid?: number;
   title: string;
   thumb?: string | null;
   duration?: number;
@@ -272,11 +279,13 @@ export function AddSongInput({ onAdd, me, onOpenCatalog }: AddSongInputProps) {
       const parsedThumb = "thumb" in parsed ? parsed.thumb : null;
       const parsedDuration = "duration" in parsed ? parsed.duration : undefined;
       const parsedPage = "page" in parsed ? parsed.page : undefined;
+      const parsedCid = "cid" in parsed ? parsed.cid : undefined;
       const song: QueueSong = {
         id: __UI_uid(),
         source: parsed.source,
         videoId: parsed.videoId,
         page: parsedPage,
+        cid: parsedCid,
         title: parsedTitle || fallbackTitle({ source: parsed.source, videoId: parsed.videoId }),
         thumb: parsedThumb || ytThumb,
         duration: parsedDuration,
@@ -471,6 +480,12 @@ interface QueueRowProps {
    * an unintentional click should not look identical to a meaningful one.
    */
   disableTop?: boolean;
+  /**
+   * Override the rendered title. Parent computes via formatSongTitle so
+   * favorited songs with full manual metadata get the structured form. If
+   * omitted, fall back to the song's raw imported title.
+   */
+  displayTitle?: string;
 }
 
 export function QueueRow({
@@ -484,10 +499,12 @@ export function QueueRow({
   dragging,
   dropTarget,
   disableTop,
+  displayTitle,
 }: QueueRowProps) {
   void idx; // Reserved for future use; parent already drives disableTop.
+  const renderedTitle = displayTitle ?? song.title;
   const askDelete = () => {
-    const ok = window.confirm(`Remove "${song.title}" from the queue?`);
+    const ok = window.confirm(`Remove "${renderedTitle}" from the queue?`);
     if (ok) onDelete(song.id);
   };
   // The pinned current row collapses its meta to a single NOW PLAYING tag
@@ -606,6 +623,126 @@ export function ProfileSheet({ me, onUpdate, onClose }: ProfileSheetProps) {
           </label>
           <div className="sheet-actions">
             <NeonButton onClick={save} accent="pink">SAVE</NeonButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Favorite metadata edit sheet ─────────────────────────────────────────
+//
+// Surfaced from three entry points:
+//   1. Catalog row's ✏️ button.
+//   2. Filled ★ on a queue row.
+//   3. Filled ★ on a history row.
+// All three open the same sheet, scoped to the favorite identified by
+// (source, videoId, page). Save sends `favorite.update`; Delete sends
+// `favorite.remove` after a window.confirm; Cancel/Esc/backdrop closes.
+
+interface FavoriteEditSheetProps {
+  favorite: Favorite;
+  onSave: (patch: FavoritePatch) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
+export function FavoriteEditSheet({
+  favorite,
+  onSave,
+  onDelete,
+  onClose,
+}: FavoriteEditSheetProps) {
+  const initialAuthors = (favorite.authors ?? []).join(", ");
+  const initialMode: "instr" | "vocal" | "" = favorite.mode ?? "";
+  const [displayTitle, setDisplayTitle] = useState(favorite.displayTitle ?? "");
+  const [authorsText, setAuthorsText] = useState(initialAuthors);
+  const [mode, setMode] = useState<"instr" | "vocal" | "">(initialMode);
+
+  const save = () => {
+    const patch: FavoritePatch = {};
+    const dt = displayTitle.trim();
+    patch.displayTitle = dt.length > 0 ? dt : null;
+    const authors = authorsText
+      .split(/[,，]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    patch.authors = authors.length > 0 ? authors : null;
+    patch.mode = mode === "instr" || mode === "vocal" ? mode : null;
+    onSave(patch);
+    onClose();
+  };
+
+  const askDelete = () => {
+    const ok = window.confirm(
+      `从收藏中删除「${favorite.displayTitle || favorite.title}」？`,
+    );
+    if (ok) {
+      onDelete();
+      onClose();
+    }
+  };
+
+  return (
+    <div className="sheet-overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-head">
+          <h3 className="neon-text" style={{ color: "var(--neon-pink)" }}>EDIT FAVORITE</h3>
+          <button className="sheet-x" onClick={onClose}>×</button>
+        </div>
+        <div className="sheet-body">
+          <div className="form-row">
+            <span className="form-label">原始标题</span>
+            <code className="form-readonly">{favorite.title}</code>
+          </div>
+          <label className="form-row">
+            <span className="form-label">曲名（简体）</span>
+            <input
+              className="form-input"
+              value={displayTitle}
+              onChange={(e) => setDisplayTitle(e.target.value)}
+              placeholder="例如 小镇姑娘"
+              maxLength={120}
+            />
+          </label>
+          <label className="form-row">
+            <span className="form-label">作者（用 , 分隔多人）</span>
+            <input
+              className="form-input"
+              value={authorsText}
+              onChange={(e) => setAuthorsText(e.target.value)}
+              placeholder="例如 陶喆, 蔡依林"
+              maxLength={300}
+            />
+          </label>
+          <div className="form-row">
+            <span className="form-label">模式</span>
+            <div className="fav-mode-group">
+              {(
+                [
+                  ["", "未指定"],
+                  ["instr", "伴奏"],
+                  ["vocal", "原唱"],
+                ] as const
+              ).map(([val, label]) => (
+                <label key={val} className={`fav-mode-pill ${mode === val ? "is-on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="fav-mode"
+                    value={val}
+                    checked={mode === val}
+                    onChange={() => setMode(val)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="sheet-actions" style={{ justifyContent: "space-between" }}>
+            <button className="ghost-btn" onClick={askDelete} title="从收藏中删除">
+              🗑 删除
+            </button>
+            <NeonButton onClick={save} accent="pink">保存</NeonButton>
           </div>
         </div>
       </div>

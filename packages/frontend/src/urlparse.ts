@@ -14,6 +14,8 @@ export interface ParsedSong {
   source: Source;
   videoId: string;
   page?: number;
+  /** Bilibili per-page content-id (see `Song.cid` in @litektv/types). */
+  cid?: number;
   title?: string | null;
   thumb?: string | null;
   duration?: number;
@@ -84,6 +86,7 @@ async function parseViaBackend(text: string): Promise<ParsedSong> {
     source: j.source as Source,
     videoId: j.videoId as string,
     page: j.page,
+    cid: j.cid,
     title: j.title || null,
     thumb: j.thumb || null,
     duration: j.duration,
@@ -115,7 +118,7 @@ export interface EmbedOpts {
 }
 
 export function embedUrl(
-  song: { source: Source; videoId: string; page?: number },
+  song: { source: Source; videoId: string; page?: number; cid?: number },
   opts: EmbedOpts = {},
 ): string {
   const { startSec = 0, autoplay = true, mute = false, hideChrome = false } = opts;
@@ -136,9 +139,20 @@ export function embedUrl(
   if (song.source === "bili") {
     const isBV = String(song.videoId).startsWith("BV");
     const idParam = isBV ? `bvid=${song.videoId}` : `aid=${song.videoId.replace(/^av/, "")}`;
+    // Page selector priority — cid > p > default 1.
+    // Bilibili's player.html honors &cid=N (the per-page content id from
+    // /x/web-interface/view's pages[]) consistently across devices. The
+    // legacy &page=N parameter has been observed to silently fall back
+    // to P1 on at least mobile, so we no longer emit it. For older queue
+    // rows that pre-date the cid-extraction backend change, we fall back
+    // to &p=N — the parameter Bilibili's WATCH page itself uses, and
+    // the user's expressed intent in their pasted URL.
+    const pageSelector = song.cid
+      ? `cid=${song.cid}`
+      : `p=${song.page || 1}`;
     const params = [
       idParam,
-      `page=${song.page || 1}`,
+      pageSelector,
       `autoplay=${autoplay ? 1 : 0}`,
       `t=${Math.floor(startSec || 0)}`,
       `high_quality=1`,

@@ -54,7 +54,7 @@ export function CatalogModal({ open, onClose, onAddRef }: CatalogModalProps) {
     <div className="sheet-overlay catalog-overlay" onClick={onClose}>
       <div className="sheet catalog-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
-          <h3 className="neon-text" style={{ color: "var(--neon-cyan)" }}>
+          <h3 className="neon-text" style={{ color: "var(--neon-pink)" }}>
             MY SONGS <span className="catalog-count">{favs.length}</span>
           </h3>
           <button className="sheet-x" onClick={onClose}>×</button>
@@ -63,16 +63,16 @@ export function CatalogModal({ open, onClose, onAddRef }: CatalogModalProps) {
           <input
             ref={inputRef}
             className="catalog-search"
-            placeholder="搜索歌单 · pinyin / 首字母 / 部分都行"
+            placeholder="Search catalog — pinyin, initials, or partial title"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <div className="catalog-list scrollbar">
           {favs.length === 0 ? (
-            <div className="empty">还没有收藏的歌 · 在队列或历史里点 ☆ 加进来</div>
+            <div className="empty">No saved songs yet — tap ☆ on a queue or history row to save one.</div>
           ) : filtered.length === 0 ? (
-            <div className="empty">没有匹配「{q}」的歌</div>
+            <div className="empty">No matches for "{q}"</div>
           ) : (
             filtered.map((f) => {
               const key = `${f.source}:${f.videoId}:${f.page ?? 0}`;
@@ -90,7 +90,7 @@ export function CatalogModal({ open, onClose, onAddRef }: CatalogModalProps) {
                   actions={
                     <IconBtn
                       glyph={flashed ? Glyph.check : Glyph.plusSm}
-                      title={flashed ? "已加入队列" : "加入队列"}
+                      title={flashed ? "Added to queue" : "Add to queue"}
                       onClick={() => {
                         onAddRef({
                           source: f.source,

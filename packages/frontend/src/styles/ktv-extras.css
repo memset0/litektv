@@ -207,7 +207,7 @@ body[data-font="display"] {
 .side-action:disabled { opacity: 0.4; cursor: not-allowed; }
 .side-action.add-plus { color: var(--neon-pink); }
 .side-action.add-plus.is-busy { animation: side-pulse 0.9s ease-in-out infinite; }
-.side-action.open-catalog { color: var(--neon-cyan); }
+.side-action.open-catalog { color: var(--neon-pink); }
 @keyframes side-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* ── catalog modal ───────────────────────────────────────────────────── */

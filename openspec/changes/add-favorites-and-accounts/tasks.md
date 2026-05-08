@@ -1,9 +1,9 @@
 ## 1. Backend storage scaffolding
 
-- [ ] 1.1 In `packages/backend/src/db.ts`, add idempotent `CREATE TABLE IF NOT EXISTS` for `accounts`, `sessions`, `user_links`, and `favorites` with the schema from the room-persistence spec; add `idx_favorites_owner_added`.
-- [ ] 1.2 Add typed accessors in `db.ts`: `insertAccount`, `findAccountByName`, `getAccountById`, `createSession`, `findSessionByToken`, `deleteSession`, `getOrCreateUserLink`, `linkUserToAccount`, `unlinkUser`, plus `listFavorites(ownerKey)`, `addFavorite(row)`, `removeFavorite(ownerKey, source, videoId, page)`, and `mergeAnonFavoritesIntoAccount(userId, accountId)` (single-tx).
-- [ ] 1.3 Extend `packages/backend/src/types.ts` with `Account`, `Session`, `Favorite`, `OwnerKey` (`acct:${string}` | `anon:${string}`), and the new WS message shapes (`auth.*`, `favorite.*`).
-- [ ] 1.4 Add `argon2` to `packages/backend/package.json` and import in a new `packages/backend/src/auth.ts` exposing `hashPassword`, `verifyPassword`, `mintToken`.
+- [x] 1.1 In `packages/backend/src/db.ts`, add idempotent `CREATE TABLE IF NOT EXISTS` for `accounts`, `sessions`, `user_links`, and `favorites` with the schema from the room-persistence spec; add `idx_favorites_owner_added`.
+- [x] 1.2 Add typed accessors in `db.ts`: `insertAccount`, `findAccountByName`, `getAccountById`, `createSession`, `findSessionByToken`, `deleteSession`, `getOrCreateUserLink`, `linkUserToAccount`, `unlinkUser`, plus `listFavorites(ownerKey)`, `addFavorite(row)`, `removeFavorite(ownerKey, source, videoId, page)`, and `mergeAnonFavoritesIntoAccount(userId, accountId)` (single-tx).
+- [x] 1.3 Extend `packages/backend/src/types.ts` with `Account`, `Session`, `Favorite`, `OwnerKey` (`acct:${string}` | `anon:${string}`), and the new WS message shapes (`auth.*`, `favorite.*`).
+- [x] 1.4 Add `argon2` to `packages/backend/package.json` and import in a new `packages/backend/src/auth.ts` exposing `hashPassword`, `verifyPassword`, `mintToken`.
 
 ## 2. Backend parser canonicalization
 

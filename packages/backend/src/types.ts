@@ -52,3 +52,39 @@ export interface ParsedSongMeta {
   thumb?: string | null;
   duration?: number;
 }
+
+// ── Accounts / sessions / favorites ────────────────────────────────────────
+
+export interface Account {
+  accountId: string;
+  name: string;
+  emoji: string;
+  createdAt: number;
+  lastSeen: number;
+}
+
+export interface Session {
+  token: string;
+  accountId: string;
+  createdAt: number;
+  lastSeen: number;
+}
+
+export interface Favorite {
+  source: Source;
+  videoId: string;
+  page: number; // 0 means "no page"
+  title: string;
+  thumb?: string | null;
+  duration?: number;
+  addedAt: number;
+}
+
+export type OwnerKey = `acct:${string}` | `anon:${string}`;
+
+/** Canonical reference to a video, sufficient to re-fetch metadata. */
+export interface SongRef {
+  source: Source;
+  videoId: string;
+  page?: number;
+}

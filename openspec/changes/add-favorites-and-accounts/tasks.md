@@ -14,11 +14,11 @@
 
 ## 3. Backend auth + session handling
 
-- [ ] 3.1 Implement WS message handlers in `packages/backend/src/ws.ts`: `auth.signup`, `auth.login`, `auth.attach`, `auth.logout`, `auth.profile`, each responding `{type:"auth.ok", token?, account}` on success and `{type:"error", error}` on failure.
-- [ ] 3.2 Track per-connection state `{userId, accountId?, ownerKey, sessionToken?}`; recompute `ownerKey` on login/logout/attach and emit a `favorites` snapshot on every `ownerKey` transition.
-- [ ] 3.3 Override presence `name`/`emoji` and `addedBy` for connections with an attached account so account identity wins over the hello fields (per user-accounts spec).
-- [ ] 3.4 Add REST `POST /api/auth/signup` and `POST /api/auth/login` returning `{token, account}` with the same shape; share validation/hash logic with the WS handlers.
-- [ ] 3.5 Implement per-name+IP and per-IP rate limits for auth in `packages/backend/src/rateLimit.ts`.
+- [x] 3.1 Implement WS message handlers in `packages/backend/src/ws.ts`: `auth.signup`, `auth.login`, `auth.attach`, `auth.logout`, `auth.profile`, each responding `{type:"auth.ok", token?, account}` on success and `{type:"error", error}` on failure.
+- [x] 3.2 Track per-connection state `{userId, accountId?, ownerKey, sessionToken?}`; recompute `ownerKey` on login/logout/attach and emit a `favorites` snapshot on every `ownerKey` transition.
+- [x] 3.3 Override presence `name`/`emoji` and `addedBy` for connections with an attached account so account identity wins over the hello fields (per user-accounts spec).
+- [x] 3.4 Add REST `POST /api/auth/signup` and `POST /api/auth/login` returning `{token, account}` with the same shape; share validation/hash logic with the WS handlers.
+- [x] 3.5 Implement per-name+IP and per-IP rate limits for auth in `packages/backend/src/rateLimit.ts`.
 
 ## 4. Backend favorites handling
 

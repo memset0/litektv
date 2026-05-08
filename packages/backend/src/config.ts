@@ -12,5 +12,8 @@ export const config = {
     "queue.add": { perMinute: 30 },
     "danmaku": { perMinute: 60 },
     "parse": { perMinute: 20 },
+    "favorite": { perMinute: 60 },
+    "auth.ip": { perMinute: 10 },
+    "auth.name": { perMinute: 5 },
   },
 } as const;

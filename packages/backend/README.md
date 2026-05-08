@@ -1,6 +1,6 @@
 # litektv-backend
 
-Realtime room/queue/danmaku backend for [litektv](../). Implements the surface described in [`../../BACKEND_SPEC.md`](../../BACKEND_SPEC.md):
+Realtime room/queue/danmaku backend for [litektv](../). Implements the surface captured in the OpenSpec capabilities under [`openspec/specs/`](../../openspec/specs/) — primarily `room-state-sync`, `link-parser`, `room-persistence`, and `room-routing`:
 
 - `POST /api/parse-link` — resolve YouTube / Bilibili URLs (incl. `b23.tv` redirects) and fetch metadata.
 - `GET /api/thumb?source&id` — 302 redirect to a source thumbnail.
@@ -46,7 +46,7 @@ Connect with `?room=<slug>`. First client message must be `hello`:
 { "type": "hello", "userId": "u_xxx", "name": "alice", "emoji": "🎤", "anonymous": false }
 ```
 
-Server immediately sends a `state` snapshot, and re-broadcasts `state` after every mutation. Other client message types are listed in [`BACKEND_SPEC.md` §5](../../BACKEND_SPEC.md).
+Server immediately sends a `state` snapshot, and re-broadcasts `state` after every mutation. The full client→server message list lives in [`openspec/specs/room-state-sync/spec.md`](../../openspec/specs/room-state-sync/spec.md).
 
 ## Rate limits
 

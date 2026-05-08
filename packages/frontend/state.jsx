@@ -15,7 +15,7 @@
     "", "api", "ws", "favicon.ico", "robots.txt", "sitemap.xml",
     "KTV.html", "index.html", "state.jsx", "app.jsx", "app-ui.jsx",
     "player.jsx", "urlparse.jsx", "tweaks-panel.jsx",
-    "ktv.css", "ktv-extras.css", "BACKEND_SPEC.md", "LICENSE",
+    "ktv.css", "ktv-extras.css", "LICENSE",
   ]);
   const SLUG_RE = /^[A-Za-z0-9_-]{1,64}$/;
 

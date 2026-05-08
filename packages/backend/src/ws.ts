@@ -76,14 +76,19 @@ const songRefSchema = z.object({
   page: z.number().int().min(1).optional(),
 });
 
-const favoriteAddSongSchema = z.object({
-  source: z.enum(["yt", "bili"]),
-  videoId: z.string().min(1).max(64),
-  page: z.number().int().min(1).optional(),
-  title: z.string().max(300).optional(),
-  thumb: z.string().max(1024).nullable().optional(),
-  duration: z.number().nonnegative().optional(),
-});
+// Strict — unknown keys cause validation to fail so the server can return
+// the spec-mandated `{type:"error", error:"unknown field"}` rather than
+// silently storing whatever extra fields the client sent.
+const favoriteAddSongSchema = z
+  .object({
+    source: z.enum(["yt", "bili"]),
+    videoId: z.string().min(1).max(64),
+    page: z.number().int().min(1).optional(),
+    title: z.string().max(300).optional(),
+    thumb: z.string().max(1024).nullable().optional(),
+    duration: z.number().nonnegative().optional(),
+  })
+  .strict();
 
 const incoming = z.discriminatedUnion("type", [
   helloSchema,
@@ -295,11 +300,20 @@ function onConnection(ws: WebSocket, slug: string, ip: string) {
 
   ws.on("message", (raw) => {
     let parsed: z.infer<typeof incoming>;
+    let rawType: unknown = null;
     try {
-      const obj = JSON.parse(raw.toString());
+      const obj = JSON.parse(raw.toString()) as { type?: unknown };
+      rawType = obj?.type;
       parsed = incoming.parse(obj);
-    } catch {
-      send(ws, { type: "error", error: "bad message" });
+    } catch (e) {
+      // Make the error message a bit more useful for the favorites strict
+      // schema so clients can tell when they sent unknown fields.
+      const isFav = rawType === "favorite.add" || rawType === "favorite.remove";
+      const msg =
+        e instanceof z.ZodError && isFav && e.errors.some((x) => x.code === "unrecognized_keys")
+          ? "unknown field"
+          : "bad message";
+      send(ws, { type: "error", error: msg });
       return;
     }
     void handleMessage(state, parsed);

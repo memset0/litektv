@@ -1,27 +1,29 @@
 // urlparse.jsx — parse Bilibili / YouTube URLs (incl. short links)
 
 (function () {
-  // Returns { source: 'yt'|'bili', videoId, originalUrl } or throws.
+  // Returns { source: 'yt'|'bili', videoId } or null if no match.
+  // NOTE: privacy — only canonical fields. The original URL is intentionally
+  // dropped so it never flows downstream into a queue/favorite payload.
   function extractFromText(text) {
     text = (text || "").trim();
     // ── YouTube patterns ────────────────────────────────────
     // youtu.be/<id>
     let m = text.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
-    if (m) return { source: "yt", videoId: m[1].slice(0, 11), originalUrl: text };
+    if (m) return { source: "yt", videoId: m[1].slice(0, 11) };
     // youtube.com/watch?v=<id>
     m = text.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-    if (m) return { source: "yt", videoId: m[1].slice(0, 11), originalUrl: text };
+    if (m) return { source: "yt", videoId: m[1].slice(0, 11) };
     // youtube.com/shorts/<id>  or /embed/<id>  or /live/<id>
     m = text.match(/youtube\.com\/(?:shorts|embed|live)\/([A-Za-z0-9_-]{6,})/i);
-    if (m) return { source: "yt", videoId: m[1].slice(0, 11), originalUrl: text };
+    if (m) return { source: "yt", videoId: m[1].slice(0, 11) };
 
     // ── Bilibili patterns ───────────────────────────────────
     // bilibili.com/video/BVxxxx  or BVxxxx
     m = text.match(/(BV[0-9A-Za-z]{6,})/);
-    if (m) return { source: "bili", videoId: m[1], originalUrl: text };
+    if (m) return { source: "bili", videoId: m[1] };
     // av number: bilibili.com/video/av12345
     m = text.match(/\/video\/av(\d+)/i);
-    if (m) return { source: "bili", videoId: "av" + m[1], originalUrl: text };
+    if (m) return { source: "bili", videoId: "av" + m[1] };
     return null;
   }
 
@@ -41,7 +43,7 @@
         if (!res.ok) { lastErr = new Error("HTTP " + res.status); continue; }
         const txt = await res.text();
         const found = extractFromText(txt);
-        if (found) return { ...found, originalUrl: url };
+        if (found) return found;
       } catch (e) { lastErr = e; }
     }
     throw new Error("无法解析短链：" + (lastErr ? lastErr.message : "代理不可用") + "（请尝试粘贴完整链接）");
@@ -70,7 +72,6 @@
     return {
       source: j.source, videoId: j.videoId, page: j.page,
       title: j.title || null, thumb: j.thumb || null, duration: j.duration,
-      originalUrl: text,
     };
   }
 

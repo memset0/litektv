@@ -51,12 +51,12 @@
 
 ## 8. Privacy / canonicalization sweep
 
-- [ ] 8.1 Grep the backend and frontend for any place that stashes `req.body.url`, `originalUrl`, or `share_text` into state, persisted records, or logs; remove them.
-- [ ] 8.2 Confirm by code inspection (and add a unit test) that `Song`/favorite serialization paths only emit the canonical field allowlist.
+- [x] 8.1 Grep the backend and frontend for any place that stashes `req.body.url`, `originalUrl`, or `share_text` into state, persisted records, or logs; remove them.
+- [x] 8.2 Confirm by code inspection (and add a unit test) that `Song`/favorite serialization paths only emit the canonical field allowlist.
 
 ## 9. Tests + manual verification
 
-- [ ] 9.1 Vitest: parser canonicalization (URL with spm_id_from), `parseRef` round-trip, favorites add/remove dedupe, anonymous→account merge transactionality (kill mid-tx via `BEGIN IMMEDIATE` + thrown error).
+- [x] 9.1 Vitest: parser canonicalization (URL with spm_id_from), `parseRef` round-trip, favorites add/remove dedupe, anonymous→account merge transactionality (kill mid-tx via `BEGIN IMMEDIATE` + thrown error).
 - [ ] 9.2 Manual: in two browsers, anonymous user A stars in room aaa, joins bbb, sees the star; user B in same room does NOT see A's favorites in their state snapshot.
 - [ ] 9.3 Manual: signup on Device 1, login same account on Device 2, observe favorites appear; star on D2, observe live broadcast on D1 within one round trip.
 - [ ] 9.4 Manual: paste the spm-laden Bilibili URL from the user's note, confirm the queued song record contains only canonical fields (inspect via `sqlite3 data/litektv.db 'select state from rooms where slug=?'`).

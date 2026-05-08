@@ -28,6 +28,15 @@
 - [x] 4.2 All three feature commits pushed incrementally per CLAUDE.md auto-push rule.
 - [ ] 4.3 Live verify on https://ktv.dev.mem.ac/ — queue tab, with and without a current track, with and without queue rows. **Pending user verification.**
 
-## 5. Archive (handled by user)
+## 5. Refinements after first live-test (added during apply)
 
-- [ ] 5.1 User runs `openspec archive queue-row-current-and-cover` once they've live-tested.
+User looked at the first round of commits and asked for follow-ups, which landed before archive:
+
+- [x] 5.1 Replace `Glyph.mic` (studio mic with U-yoke + stand) with a karaoke handheld mic — tilted ball-grille on the upper-left, tapered handle to the lower-right. Commit `f960ed9`.
+- [x] 5.2 Pinned current row's meta line collapses to ONLY the NOW PLAYING tag — `src` / `by` / `time` bits are dropped because the plate already identifies the row as the current track. SongCard's NOW PLAYING tag is now driven solely by the `now` meta bit (no longer requires `active=true`). Commit `e06f7f0`.
+- [x] 5.3 Pinned current row no longer applies `active`-style border highlight + glow. Standard chrome blends with the rest of the queue; the plate + the NOW PLAYING tag carry the "current track" signal. Spec deltas amended in lockstep. Commit `e06f7f0`.
+- [x] 5.4 `.np-title-wrap` edge-fade mask is now gated on an `is-overflowing` modifier driven by the existing `overflow` state, so short titles render edge-to-edge with no dimming and only marquee-scrolling titles get the fade. Commit `40289ae`.
+
+## 6. Archive (handled by user)
+
+- [ ] 6.1 User runs `openspec archive queue-row-current-and-cover` once they've live-tested.

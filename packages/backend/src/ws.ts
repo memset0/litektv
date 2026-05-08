@@ -437,18 +437,27 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
       let title = fav.title;
       let thumb = fav.thumb ?? null;
       let duration = fav.duration;
-      if (!title) {
+      let cid: number | undefined = fav.cid;
+      // Re-parse if title is missing OR (Bilibili AND we don't yet have
+      // cid). The cid is the persistent reason for the round-trip — once
+      // we have it, repeat re-adds won't pay this cost again. Failure of
+      // the upstream call is non-fatal: title falls back to a synthetic
+      // string and cid stays undefined.
+      const needsReparse =
+        !title || (fav.source === "bili" && cid === undefined);
+      if (needsReparse) {
         try {
           const meta = await parseRef({
             source: fav.source,
             videoId: fav.videoId,
             page: fav.source === "bili" ? page : undefined,
           });
-          title = meta.title;
-          thumb = meta.thumb ?? null;
-          duration = meta.duration;
+          title = title ?? meta.title;
+          thumb = thumb ?? meta.thumb ?? null;
+          duration = duration ?? meta.duration;
+          cid = cid ?? meta.cid;
         } catch {
-          title = `${fav.source === "yt" ? "YouTube" : "Bilibili"} ${fav.videoId}`;
+          title = title ?? `${fav.source === "yt" ? "YouTube" : "Bilibili"} ${fav.videoId}`;
         }
       }
       // Stamp the favoriter — server-side from presence so a client can't
@@ -464,11 +473,12 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         source: fav.source,
         videoId: fav.videoId,
         page,
-        title,
+        title: title ?? `${fav.source === "yt" ? "YouTube" : "Bilibili"} ${fav.videoId}`,
         thumb: thumb ?? null,
         duration,
         addedBy,
         addedAt: now(),
+        cid,
       };
       const result = addFavorite(row);
       // Only log when this was a real insert. The "first starrer wins"

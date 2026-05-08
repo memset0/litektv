@@ -127,6 +127,11 @@ export function CatalogModal({ open, onClose, onAddRef, onEdit }: CatalogModalPr
                             source: f.source,
                             videoId: f.videoId,
                             page: f.source === "bili" && f.page ? f.page : undefined,
+                            // Ship cid when the favorite has it cached, so
+                            // the backend skips the upstream API call.
+                            // Backend's queue.add ref branch falls back to
+                            // parseRef when undefined.
+                            cid: f.cid,
                           });
                           flashAdded(key);
                         }}

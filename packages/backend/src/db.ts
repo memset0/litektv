@@ -45,6 +45,7 @@ export function initDb(): void {
       display_title  TEXT,
       authors        TEXT,
       mode           TEXT CHECK (mode IS NULL OR mode IN ('instr','vocal')),
+      cid            INTEGER,
       PRIMARY KEY (source, video_id, page)
     );
     CREATE INDEX IF NOT EXISTS idx_favorites_added ON favorites(added_at DESC);
@@ -89,6 +90,7 @@ export function initDb(): void {
     "display_title TEXT",
     "authors TEXT",
     "mode TEXT", // CHECK constraint only applies to fresh installs; for upgrades the validation lives at the WS handler level
+    "cid INTEGER",
   ]) {
     try {
       db.exec(`ALTER TABLE favorites ADD COLUMN ${column}`);
@@ -160,6 +162,7 @@ interface FavoriteRow {
   display_title: string | null;
   authors: string | null;
   mode: string | null;
+  cid: number | null;
 }
 
 function parseAuthors(raw: string | null): string[] | undefined {
@@ -200,12 +203,13 @@ function rowToFavorite(r: FavoriteRow): Favorite {
     displayTitle: r.display_title ?? undefined,
     authors: parseAuthors(r.authors),
     mode: parseMode(r.mode),
+    cid: r.cid ?? undefined,
   };
 }
 
 const FAV_SELECT = `SELECT source, video_id, page, title, thumb, duration,
                           added_by_id, added_by_name, added_by_emoji, added_at,
-                          display_title, authors, mode`;
+                          display_title, authors, mode, cid`;
 
 export function listFavorites(): Favorite[] {
   const rows = requireDb()
@@ -232,8 +236,9 @@ export function addFavorite(fav: Favorite): { inserted: boolean } {
     .prepare(
       `INSERT INTO favorites
          (source, video_id, page, title, thumb, duration,
-          added_by_id, added_by_name, added_by_emoji, added_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          added_by_id, added_by_name, added_by_emoji, added_at,
+          cid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(source, video_id, page) DO NOTHING`,
     )
     .run(
@@ -247,6 +252,7 @@ export function addFavorite(fav: Favorite): { inserted: boolean } {
       fav.addedBy?.name ?? null,
       fav.addedBy?.emoji ?? null,
       fav.addedAt,
+      fav.cid ?? null,
     );
   return { inserted: result.changes > 0 };
 }

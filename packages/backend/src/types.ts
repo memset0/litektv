@@ -89,6 +89,13 @@ export interface Favorite {
   authors?: string[];
   /** Operator-curated mode: "instr" = 伴奏, "vocal" = 原唱. */
   mode?: FavoriteMode;
+  /**
+   * Bilibili per-page content-id. Persisted so the catalog can ship it in
+   * `queue.add` refs without an extra upstream API call. Always undefined
+   * for YouTube favorites; may be undefined for legacy Bilibili rows that
+   * pre-date the cid column (those get backfilled lazily on next add).
+   */
+  cid?: number;
 }
 
 export type FavoriteAuditOp = "add" | "update" | "remove" | "rollback";
@@ -118,4 +125,7 @@ export interface SongRef {
   source: Source;
   videoId: string;
   page?: number;
+  /** Bilibili per-page content-id; when supplied, callers may skip a
+   *  parseRef round-trip and use this value directly. See `Song.cid`. */
+  cid?: number;
 }

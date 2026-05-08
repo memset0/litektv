@@ -143,27 +143,31 @@ function HistoryList({ items, onReadd, onToggleFavorite, isFavorited }) {
   if (!items || items.length === 0) return <div className="empty">No songs sung yet ✦</div>;
   return (
     <div className="hist-list">
-      {items.slice().reverse().map((s, idx) => (
-        <div className="hist-row" key={s.id + ":" + (s.finishedAt || 0)}>
-          <div className="hist-num">{(items.length - idx).toString().padStart(2, "0")}</div>
-          <div className="hist-meta">
-            <div className="hist-title">{s.title}</div>
-            <div className="hist-sub">
-              <span className="q-emoji">{s.addedBy.emoji}</span>
-              <span>{s.addedBy.name}</span>
-              <span className="q-dot">·</span>
-              <span>{__UI.ago(s.finishedAt || s.addedAt)}</span>
-              <span className="src-tag" data-src={s.source}>{s.source === "yt" ? "YT" : "Bili"}</span>
-            </div>
-          </div>
-          <div className="hist-actions">
-            {onToggleFavorite ? (
-              <__UI.StarBtn filled={isFavorited(s)} onClick={() => onToggleFavorite(s)} />
-            ) : null}
-            <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
-          </div>
-        </div>
-      ))}
+      {items.slice().reverse().map((s) => {
+        const key = s.id + ":" + (s.finishedAt || 0);
+        const meta = [
+          { kind: "src", source: s.source },
+          { kind: "by", name: s.addedBy.name, emoji: s.addedBy.emoji },
+          { kind: "time", ts: s.finishedAt || s.addedAt },
+        ];
+        return (
+          <__UI.SongCard
+            key={key}
+            songKey={key}
+            cover={<__UI.CoverThumb source={s.source} videoId={s.videoId} />}
+            title={s.title}
+            meta={meta}
+            actions={
+              <>
+                {onToggleFavorite ? (
+                  <__UI.StarBtn filled={isFavorited(s)} onClick={() => onToggleFavorite(s)} />
+                ) : null}
+                <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
+              </>
+            }
+          />
+        );
+      })}
     </div>
   );
 }
@@ -332,15 +336,12 @@ function App() {
                 <div className="empty">{current ? "Queue empty — drop more links ♪" : "Paste a link to start the night ♪"}</div>
               ) : (
                 room.queue.map((s, i) => {
-                  const cls = [
-                    "q-drag-wrap",
-                    draggingId === s.id ? "is-dragging" : "",
-                    dragOverId === s.id && draggingId && draggingId !== s.id ? "is-drop-target" : "",
-                  ].filter(Boolean).join(" ");
+                  const isDragging = draggingId === s.id;
+                  const isDropTarget = dragOverId === s.id && draggingId && draggingId !== s.id;
                   return (
                     <div
                       key={s.id}
-                      className={cls}
+                      className="q-drag-wrap"
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = "move";
@@ -365,7 +366,9 @@ function App() {
                       <__UI.QueueRow song={s} idx={i} isCurrent={false}
                         onTop={topSong} onDelete={deleteSong}
                         onToggleFavorite={toggleFavorite}
-                        isFavorited={favOps.isFavorited(s)} />
+                        isFavorited={favOps.isFavorited(s)}
+                        dragging={isDragging}
+                        dropTarget={isDropTarget} />
                     </div>
                   );
                 })

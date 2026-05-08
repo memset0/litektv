@@ -210,23 +210,6 @@ body[data-font="display"] {
 .side-action.open-catalog { color: var(--neon-cyan); }
 @keyframes side-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
-/* ── star toggle ──────────────────────────────────────────────────────── */
-.star-btn {
-  display: inline-grid; place-items: center;
-  width: 26px; height: 26px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-mute);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: color 0.12s ease, transform 0.12s ease;
-}
-.star-btn:hover:not(:disabled) { color: var(--neon-yellow); transform: scale(1.1); }
-.star-btn.is-on { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255, 244, 92, 0.7); }
-.star-btn.is-on:disabled { cursor: default; opacity: 1; }
-
-.hist-actions { display: flex; align-items: center; gap: 6px; }
-
 /* ── catalog modal ───────────────────────────────────────────────────── */
 .catalog-overlay { z-index: 60; }
 .catalog-sheet {
@@ -261,37 +244,8 @@ body[data-font="display"] {
   padding: 0 var(--pad) 12px;
   display: flex; flex-direction: column; gap: 6px;
 }
-.cat-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--card);
-}
-.cat-row:hover { background: var(--card-hi); }
-.cat-meta { flex: 1; min-width: 0; }
-.cat-title {
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.cat-sub {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; color: var(--ink-mute);
-  margin-top: 2px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
-.cat-p {
-  background: rgba(44, 245, 255, 0.15);
-  color: var(--neon-cyan);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-}
-.cat-by { display: inline-flex; align-items: center; gap: 4px; }
-.cat-by .q-emoji { font-size: 11px; }
-.cat-actions { display: flex; align-items: center; gap: 6px; }
+/* Catalog rows now render through .song-card; the catalog-specific
+ * "+ 加入" pill keeps its own styling below. */
 .cat-add {
   font-family: var(--font-display);
   font-size: 12px;

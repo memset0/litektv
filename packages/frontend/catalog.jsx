@@ -58,26 +58,17 @@
             ) : (
               filtered.map((f) => {
                 const key = `${f.source}:${f.videoId}:${f.page ?? 0}`;
+                const meta = [{ kind: "src", source: f.source }];
+                if (f.addedBy) meta.push({ kind: "by", name: f.addedBy.name, emoji: f.addedBy.emoji });
+                meta.push({ kind: "time", ts: f.addedAt });
                 return (
-                  <div className="cat-row" key={key}>
-                    <div className="cat-meta">
-                      <div className="cat-title" title={f.title}>{f.title}</div>
-                      <div className="cat-sub">
-                        <span className="src-tag" data-src={f.source}>{f.source === "yt" ? "YT" : "Bili"}</span>
-                        {f.page && f.page > 1 ? <span className="cat-p">P{f.page}</span> : null}
-                        {f.addedBy ? (
-                          <>
-                            <span className="cat-by">
-                              <span className="q-emoji">{f.addedBy.emoji}</span>
-                              <span>{f.addedBy.name}</span>
-                            </span>
-                            <span className="q-dot">·</span>
-                          </>
-                        ) : null}
-                        <span className="cat-time">{__UI.ago(f.addedAt)}</span>
-                      </div>
-                    </div>
-                    <div className="cat-actions">
+                  <__UI.SongCard
+                    key={key}
+                    songKey={key}
+                    cover={null}
+                    title={f.title}
+                    meta={meta}
+                    actions={
                       <button
                         className={`cat-add ${recentlyAdded[key] ? "is-flash" : ""}`}
                         onClick={() => {
@@ -92,8 +83,8 @@
                       >
                         {recentlyAdded[key] ? "✓ 已加" : "+ 加入"}
                       </button>
-                    </div>
-                  </div>
+                    }
+                  />
                 );
               })
             )}

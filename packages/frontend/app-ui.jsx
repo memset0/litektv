@@ -103,10 +103,12 @@ function AddSongInput({ onAdd, me, onOpenCatalog }) {
 
 function StarBtn({ filled, onClick, title }) {
   // Add-only in v1: once a song is starred, the button stays filled and
-  // becomes non-interactive. Removing favorites isn't supported yet.
+  // becomes non-interactive. Renders through the .icon-btn chrome so it
+  // matches top + trash visually; the inner glyph is the only difference.
+  // Filled glyph uses var(--ink) (white) — see .icon-btn.is-on.
   return (
     <button
-      className={`star-btn ${filled ? "is-on" : ""}`}
+      className={`icon-btn ${filled ? "is-on" : ""}`}
       title={title || (filled ? "已收藏" : "Add to favorites")}
       onClick={filled ? undefined : onClick}
       disabled={filled}
@@ -117,35 +119,137 @@ function StarBtn({ filled, onClick, title }) {
   );
 }
 
-function QueueRow({ song, idx, isCurrent, onTop, onDelete, onToggleFavorite, isFavorited }) {
+// ── CoverThumb — cover image with generic placeholder fallback ────────────
+// Renders an <img> for the song's cover. On load failure (network, CORS,
+// 4xx, decode), or when no cover URL is computable, swaps in a quiet
+// card-toned placeholder of identical dimensions. NO inner number / badge
+// — the placeholder is intentionally informationless.
+function CoverThumb({ source, videoId }) {
+  const [failed, setFailed] = React.useState(false);
+  const src = React.useMemo(() => {
+    if (!source || !videoId) return null;
+    if (source === "yt") return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    if (source === "bili") return `/api/thumb?source=bili&id=${encodeURIComponent(videoId)}`;
+    return null;
+  }, [source, videoId]);
+  React.useEffect(() => { setFailed(false); }, [src]);
+  if (!src || failed) {
+    return <div className="song-card-cover-placeholder" aria-hidden="true" />;
+  }
+  return (
+    <img
+      className="song-card-cover-img"
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+// ── SongCard — the unified row primitive used by Queue / History / Catalog ─
+// Slots: cover (left, optional), title (string), meta (typed bits, fixed
+// order), actions (opaque ReactNode, right). Visual states via boolean
+// flags. See specs/song-card/spec.md for the contract.
+function SongCard({
+  songKey,
+  cover,
+  title,
+  meta,
+  actions,
+  active,
+  dragging,
+  dropTarget,
+}) {
+  const cls = [
+    "song-card",
+    cover ? "has-cover" : "",
+    active ? "is-active" : "",
+    dragging ? "is-dragging" : "",
+    dropTarget ? "is-drop-target" : "",
+  ].filter(Boolean).join(" ");
+
+  // Normalize meta into canonical order: src → by → time → now. We pluck
+  // each kind out of the input array and render in the fixed order; the
+  // dot separator between `by` and `time` is auto-inserted when both
+  // exist. There is no `page` bit — Bilibili multi-p titles already carry
+  // P{n} in the title text.
+  const bits = Array.isArray(meta) ? meta : [];
+  const byBit = bits.find((b) => b && b.kind === "by");
+  const srcBit = bits.find((b) => b && b.kind === "src");
+  const timeBit = bits.find((b) => b && b.kind === "time");
+  const nowBit = bits.find((b) => b && b.kind === "now");
+  const showDot = byBit && timeBit;
+
+  return (
+    <div className={cls} data-song-key={songKey || undefined}>
+      {cover ? <div className="song-card-cover">{cover}</div> : null}
+      <div className="song-card-body">
+        <div className="song-card-title" title={title}>{title}</div>
+        <div className="song-card-sub">
+          {srcBit ? (
+            <span className="song-card-src src-tag" data-src={srcBit.source}>
+              {srcBit.source === "yt" ? "YT" : "Bili"}
+            </span>
+          ) : null}
+          {byBit ? (
+            <span className="song-card-by">
+              <span className="song-card-by-emoji">{byBit.emoji}</span>
+              <span className="song-card-by-name">{byBit.name}</span>
+            </span>
+          ) : null}
+          {showDot ? <span className="song-card-dot">·</span> : null}
+          {timeBit ? (
+            <span className="song-card-time">{__UI_ago(timeBit.ts)}</span>
+          ) : null}
+          {nowBit && active ? (
+            <span className="song-card-now">▶ NOW PLAYING</span>
+          ) : null}
+        </div>
+      </div>
+      {actions ? <div className="song-card-actions">{actions}</div> : null}
+    </div>
+  );
+}
+
+function QueueRow({
+  song, idx, isCurrent, onTop, onDelete, onToggleFavorite, isFavorited,
+  dragging, dropTarget,
+}) {
   const askDelete = () => {
     const ok = window.confirm(`Remove “${song.title}” from the queue?`);
     if (ok) onDelete(song.id);
   };
+  const meta = [
+    { kind: "src", source: song.source },
+    { kind: "by", name: song.addedBy.name, emoji: song.addedBy.emoji },
+    { kind: "time", ts: song.addedAt },
+  ];
+  if (isCurrent) meta.push({ kind: "now" });
   return (
-    <div className={`q-row ${isCurrent ? "q-row-active" : ""}`}>
-      <div className="q-meta">
-        <div className="q-title" title={song.title}>{song.title}</div>
-        <div className="q-sub">
-          <span className="q-emoji">{song.addedBy.emoji}</span>
-          <span className="q-by">{song.addedBy.name}</span>
-          <span className="q-dot">·</span>
-          <span className="q-time">{__UI_ago(song.addedAt)}</span>
-          {isCurrent ? <span className="q-now">▶ NOW PLAYING</span> : null}
-        </div>
-      </div>
-      <div className="q-actions">
-        {onToggleFavorite ? (
-          <StarBtn filled={isFavorited} onClick={() => onToggleFavorite(song)} />
-        ) : null}
-        {!isCurrent && (
-          <>
-            <IconBtn glyph={Glyph.top} title="Move to top" onClick={() => onTop(song.id)} color="cyan" disabled={idx === 0} />
-            <IconBtn glyph={Glyph.trash} title="Remove" onClick={askDelete} color="pink" />
-          </>
-        )}
-      </div>
-    </div>
+    <SongCard
+      songKey={song.id}
+      cover={null}
+      title={song.title}
+      meta={meta}
+      active={!!isCurrent}
+      dragging={!!dragging}
+      dropTarget={!!dropTarget}
+      actions={
+        <>
+          {onToggleFavorite ? (
+            <StarBtn filled={isFavorited} onClick={() => onToggleFavorite(song)} />
+          ) : null}
+          {!isCurrent && (
+            <>
+              <IconBtn glyph={Glyph.top} title="Move to top" onClick={() => onTop(song.id)} disabled={idx === 0} />
+              <IconBtn glyph={Glyph.trash} title="Remove" onClick={askDelete} />
+            </>
+          )}
+        </>
+      }
+    />
   );
 }
 
@@ -229,5 +333,6 @@ function Onboarding({ onDone, onAnonymous }) {
 
 window.KTV.UI = Object.assign(window.KTV.UI || {}, {
   NeonButton, IconBtn, StarBtn, Glyph, AddSongInput, QueueRow, ProfileSheet, Onboarding,
+  SongCard, CoverThumb,
   fmtTime: __UI_fmtTime, ago: __UI_ago, EMOJI_POOL, uid: __UI_uid,
 });

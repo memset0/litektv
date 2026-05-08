@@ -54,32 +54,23 @@
 
 ## 6. Wire compatibility verification (local)
 
-- [ ] 6.1 `pnpm dev` from repo root: confirm the Express log line `[litektv-backend] listening on http://127.0.0.1:38117` appears once and only once (no duplicate Vite listener)
-- [ ] 6.2 `curl -sS http://127.0.0.1:38117/api/health` returns `{"ok":true,"time":...}`
-- [ ] 6.3 Open `http://127.0.0.1:38117/` in a browser; SPA loads, no console errors, no `unpkg.com` requests in the network tab
-- [ ] 6.4 Edit `packages/frontend/src/app.tsx` (e.g. tweak a string); confirm browser updates via HMR with no full reload, room state intact
-- [ ] 6.5 Open a second tab against the same slug; queue-add a song in tab A; confirm tab B sees the update over `/ws`
-- [ ] 6.6 Send a danmaku; confirm both tabs see it; confirm the danmaku layer animates as before
-- [ ] 6.7 Drag-reorder the queue; confirm the reorder persists and propagates
-- [ ] 6.8 Click 置顶 on row 3; confirm it moves to position 0
-- [ ] 6.9 Click trash on a row; confirm the `window.confirm` dialog fires; confirm cancel cancels and OK removes
-- [ ] 6.10 Paste a Bilibili share URL with Chinese title prefix; confirm `/api/parse-link` returns valid `ref`
-- [ ] 6.11 Paste a YouTube URL; confirm same
-- [ ] 6.12 Click a thumbnail in History; confirm the `+ REPLAY` action requeues the song
-- [ ] 6.13 Toggle the side-panel collapse; confirm animation matches `app-shell` requirements
-- [ ] 6.14 Visit `/missing.png`; confirm `404` (NOT the SPA HTML) — proves the room-routing dotted-asset rule still holds
-- [ ] 6.15 Visit `/api/parse-link` via GET; confirm `404` from express (NOT the SPA HTML) — proves `/api` is reserved
-- [ ] 6.16 Visit `/abc-123-test`; confirm SPA renders with that slug
-- [ ] 6.17 Stop dev. Run `pnpm build` — confirm `packages/frontend/dist/index.html` + `dist/assets/*.{js,css}` exist; confirm the built `index.html` contains no `unpkg.com`, no `text/babel`, no `@babel/standalone`
-- [ ] 6.18 Run `NODE_ENV=production STATIC_DIR=$(pwd)/packages/frontend/dist pnpm start` from repo root — confirm the prod process boots, `curl /api/health` works, the SPA loads from dist, and `ps aux | grep node | grep vite` returns NOTHING (no Vite in the running process)
+- [x] 6.1 `pnpm dev` from repo root: log line `[litektv-backend] listening on http://127.0.0.1:38117 (dev: vite middleware)` appears exactly once.
+- [x] 6.2 `curl /api/health` returns `{"ok":true,...}`.
+- [x] 6.3 SPA loads at https://ktv.dev.mem.ac/ (live-tested by user). Network tab confirmed no `unpkg.com` requests; only `/@vite/client`, `/@react-refresh`, `/src/main.tsx`, hashed `/node_modules/.vite/...` chunks. Required `server.allowedHosts: true` so Vite 5 doesn't reject the Caddy-fronted Host header.
+- [x] 6.4–6.13 UI behaviours verified live by user: HMR, cross-tab queue sync over `/ws`, danmaku, drag-reorder, top, trash with confirm, link parse (Bili + YouTube), History replay, sidebar collapse animation. User confirmed no regressions.
+- [x] 6.14 `curl /missing.png` → `404` ✓
+- [x] 6.15 `curl GET /api/parse-link` → `404` ✓ (REST router is POST-only)
+- [x] 6.16 `curl /abc-test-123` → SPA HTML ✓
+- [x] 6.17 `pnpm build` produces `packages/frontend/dist/{index.html, assets/index-*.js, assets/index-*.css}`. Built HTML verified: no `unpkg.com`, no `text/babel`, no `@babel/standalone` strings.
+- [x] 6.18 Prod-mode local boot: `NODE_ENV=production STATIC_DIR=…/dist pnpm start` serves the SPA on 38117 with `vite` not loaded into the running process (verified during §8 deploy).
 
 ## 7. Documentation updates
 
-- [ ] 7.1 Update `README.md` "本地运行" section: replace the `cd packages/backend && STATIC_DIR=../frontend pnpm dev` block with `pnpm install && pnpm dev` at repo root; mention port 38117 stays the same; mention `pnpm build && pnpm start` for prod-mode local validation.
-- [ ] 7.2 Update `README.md` "仓库结构" tree to reflect the workspace root + new `packages/frontend/{src/, vite.config.ts, package.json}` layout.
-- [ ] 7.3 Update `packages/backend/README.md` if it documents the dev workflow (currently it points at the old `STATIC_DIR=../frontend` invocation — adjust).
-- [ ] 7.4 Add a one-paragraph deployment note to `CLAUDE.md` under "Restart the systemd unit after backend changes": call out that `STATIC_DIR` MUST now point at `packages/frontend/dist` (not the raw source) and that `pnpm build` must run before any restart against new code. Frontend changes now require `pnpm build` to be re-run; a hard browser reload alone is no longer enough in prod.
-- [ ] 7.5 Commit: `docs: update README and CLAUDE.md for new pnpm workspace + Vite pipeline`
+- [x] 7.1 README "本地运行" rewritten: `pnpm install && pnpm dev` at repo root, port 38117 in both modes, plus `pnpm build && NODE_ENV=production STATIC_DIR=… pnpm start` for prod-mode local validation. New capabilities (favorites, song-card, build-pipeline) added to the spec table.
+- [x] 7.2 README "仓库结构" tree updated to show repo-root `package.json` + workspace.yaml and the new `packages/frontend/{src/, vite.config.ts, package.json}` layout.
+- [x] 7.3 `packages/backend/README.md` Develop section rewritten — pnpm install + pnpm dev are now repo-root commands; `STATIC_DIR=../frontend` is gone; `NODE_ENV` documented; the env-var table mentions the prod-only `STATIC_DIR=../frontend/dist`.
+- [x] 7.4 CLAUDE.md "Restart the systemd unit" section updated: `STATIC_DIR` now lands on `packages/frontend/dist`, frontend changes now REQUIRE `pnpm build` (a hard reload no longer suffices in prod).
+- [x] 7.5 Commit: `docs: update README and CLAUDE.md for new pnpm workspace + Vite pipeline`
 
 ## 8. Operator deploy step (NOT done by Claude — instructions for memset0)
 

@@ -51,10 +51,10 @@ After staging and BEFORE `git commit`, run `git diff --cached --stat` and confir
 
 ## Restart the systemd unit after backend changes
 
-The deployed backend runs as `litektv.service` on this same box (Caddy → 127.0.0.1:38117). The unit serves the **compiled** `packages/backend/dist/index.js` plus the static frontend files on disk, so:
+The deployed backend runs as `litektv.service` on this same box (Caddy → 127.0.0.1:38117). The unit serves the **compiled** `packages/backend/dist/index.js` plus the **built** `packages/frontend/dist/` on disk (NOT the raw `src/` — that's dev-only). The unit's `Environment=STATIC_DIR=…/packages/frontend/dist`. So:
 
-- After ANY backend code change (`packages/backend/src/**`), you MUST run `pnpm --dir packages/backend build` and then `systemctl restart litektv.service` so the new bytecode is actually live. Without the restart, the user is still hitting the old backend regardless of what you committed.
-- After ANY frontend change (`packages/frontend/**`), the file on disk is what's served, so a hard browser reload (Cmd-Shift-R) is enough — no restart needed. But if you also touched the backend in the same session, restart anyway.
+- After ANY backend code change (`packages/backend/src/**`), you MUST run `pnpm build` (frontend AND backend) at the repo root and then `systemctl restart litektv.service` so the new bytecode is actually live. Without the restart, the user is still hitting the old backend regardless of what you committed.
+- After ANY frontend change (`packages/frontend/src/**` or any `.css`), you MUST run `pnpm --filter litektv-frontend build` so the new bundle replaces the old `dist/`. A hard browser reload (Cmd-Shift-R) **is no longer enough** — there is no raw-source serving in prod. If you also touched the backend, `systemctl restart` too.
 - After a schema change in `db.ts` or new fields in WS messages, the restart is load-bearing — `initDb()` only runs `CREATE TABLE IF NOT EXISTS` on boot, and an old running process won't pick up new tables / new schema branches until it restarts.
 
 This applies to every code agent working on this repo — Claude Code, agents spawned via `Agent`, parallel Claude instances, etc. If you're not sure whether the unit is running or which version it's running, `systemctl status litektv.service` shows the pid and start time. Confirm the start time is **after** your last `pnpm build`.

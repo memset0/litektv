@@ -24,10 +24,12 @@
 
 ```
 .
+├── package.json         # pnpm workspace root：dev / build / start / typecheck / test
+├── pnpm-workspace.yaml
 ├── packages/
-│   ├── backend/         # Node.js + TypeScript + pnpm，Express + ws + better-sqlite3
-│   └── frontend/        # 单页应用（KTV.html + JSX/CSS，运行时用 @babel/standalone）
-├── openspec/specs/      # OpenSpec 沉淀的能力规范（room-state-sync / link-parser / ...）
+│   ├── backend/         # Node + TS：Express + ws + better-sqlite3，dev 模式内嵌 Vite middleware
+│   └── frontend/        # React + Vite + TypeScript SPA，src/ 下全部 .tsx
+├── openspec/specs/      # OpenSpec 沉淀的能力规范
 ├── CLAUDE.md            # 与 AI 协作时的约定（commit 风格、author 身份等）
 └── README.md            # 你正在看的文件
 ```
@@ -37,19 +39,25 @@
 需要 Node.js ≥ 20、pnpm ≥ 10。
 
 ```bash
-# 装后端依赖并启动
-cd packages/backend
-pnpm install
-STATIC_DIR=../frontend pnpm dev
+# 仓库根目录
+pnpm install     # workspace 装齐两个 sub-package 的依赖
+pnpm dev         # 后端进程同时托管 REST + /ws + Vite middleware，全部走 38117
 ```
 
-打开 <http://127.0.0.1:38117/> 即可使用——浏览器会自动随机一个 6 位房间号。
+打开 <http://127.0.0.1:38117/> 即可使用——浏览器会自动随机一个 6 位房间号。改 `packages/frontend/src/*.tsx` 文件，HMR 自动刷新（不全量 reload，房间状态保留）。
+
+如果想看 prod 模式：
+
+```bash
+pnpm build       # vite build → packages/frontend/dist/，然后 tsc → packages/backend/dist/
+NODE_ENV=production STATIC_DIR=$(pwd)/packages/frontend/dist pnpm start
+```
 
 环境变量见 [`packages/backend/README.md`](packages/backend/README.md)。
 
 ## 协议 / 规范
 
-接口和行为约定都沉淀在 [`openspec/specs/`](openspec/specs/) 下的 6 个 capability：
+接口和行为约定都沉淀在 [`openspec/specs/`](openspec/specs/) 下的 capability：
 
 | Capability | 范围 |
 |---|---|
@@ -59,6 +67,9 @@ STATIC_DIR=../frontend pnpm dev
 | `room-routing` | `/<slug>` 美化 URL、6 位默认、保留路径 |
 | `queue-controls` | 拖拽 / 置顶 / 删除 confirm / 不能批量清空 |
 | `app-shell` | 响应式布局、侧栏开关、动态标题、隐藏滚动条 |
+| `favorites` | 全局收藏、搜索（pinyin / 首字母 / 子串） |
+| `song-card` | 队列 / 历史 / 收藏统一行原语 |
+| `build-pipeline` | pnpm workspace、Vite 单端口集成、dev/prod 切换 |
 
 OpenSpec 已经在仓库里装好（`/opsx:propose`, `/opsx:apply`, `/opsx:archive`）。
 

@@ -16,27 +16,34 @@ Playback position is **not** synced — the server only tracks *which* track is 
 
 ## Develop
 
+Run from the repo root, not from this directory:
+
 ```bash
-pnpm install
-pnpm dev          # tsx watch on src/index.ts
+pnpm install      # workspace install (covers backend + frontend)
+pnpm dev          # NODE_ENV=development; embeds Vite middleware on port 38117
 ```
+
+In dev the same Node process serves REST (`/api/*`), WebSocket (`/ws`), AND the Vite-transformed SPA on port 38117. Edit `packages/frontend/src/*.tsx` and HMR fires in connected browsers — no full reload, room state preserved.
 
 Environment variables:
 
 | Name | Default | Notes |
 |------|---------|-------|
-| `PORT` | `38117` | HTTP port (REST + WS share it) |
+| `PORT` | `38117` | HTTP port (REST + WS + SPA share it) |
 | `HOST` | `127.0.0.1` | Bind host |
-| `STATIC_DIR` | (unset) | If set, serves files at `/` (point at `../frontend` to serve the JSX SPA during dev) |
+| `NODE_ENV` | (unset → prod) | Set to `development` to embed Vite middleware. Anything else serves `STATIC_DIR` as built static assets. |
+| `STATIC_DIR` | (unset) | Prod-only: directory of the Vite build output, typically `../frontend/dist`. |
 | `DB_PATH` | `./data/litektv.db` | SQLite database file path. In production it points at the repo's `backend/data/` (kept out of `packages/`). |
 | `ROOM_TTL_MS` | `86400000` | GC idle rooms after this (24h) |
 
-## Build & run
+## Build & run (prod)
 
 ```bash
-pnpm build
-pnpm start
+pnpm build                                    # builds frontend (vite) and backend (tsc)
+NODE_ENV=production STATIC_DIR=$(pwd)/packages/frontend/dist pnpm start
 ```
+
+In prod the running Node process does NOT load Vite — `STATIC_DIR` is served by `express.static`, with the SPA fallback going to `<STATIC_DIR>/index.html`.
 
 ## WebSocket protocol
 

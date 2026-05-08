@@ -198,11 +198,23 @@ export const Glyph = {
       <path d="M12 5v14M5 12h14" />
     </svg>
   ),
+  // Karaoke handheld mic — ball-grille up-left + tapered handle down-right,
+  // held diagonally for the "stage" feel. NOT a studio/podcast mic with
+  // a U-shaped yoke + stand — that's a different device and reads wrong
+  // for a KTV app.
   mic: (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
-      <path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z" />
-      <path d="M19 11a7 7 0 01-14 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M12 18v3M9 21h6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {/* grille ball, rotated so the handle drops to the lower-right */}
+      <ellipse cx="9" cy="8" rx="3.6" ry="4.6" transform="rotate(-35 9 8)" fill="currentColor" stroke="none" />
+      {/* grille mesh lines for the "ball" feel */}
+      <line x1="6.5" y1="6.2" x2="11" y2="9.4" opacity="0.55" stroke="rgba(7,6,15,0.5)" />
+      <line x1="7.5" y1="4.6" x2="12.2" y2="7.5" opacity="0.45" stroke="rgba(7,6,15,0.45)" />
+      {/* neck collar between head and handle */}
+      <rect x="11" y="10.6" width="3.4" height="2.2" transform="rotate(-35 11 10.6)" rx="0.6" fill="currentColor" stroke="none" />
+      {/* tapered handle going down to the lower-right */}
+      <path d="M13.4 13.2 L20.2 20.6" strokeWidth="3.2" />
+      {/* handle end-cap */}
+      <circle cx="20.4" cy="20.8" r="1.1" fill="currentColor" stroke="none" />
     </svg>
   ),
 };

@@ -19,3 +19,17 @@ Commit messages MUST follow [Conventional Commits](https://www.conventionalcommi
 **Recommended format:** `<type>(<scope>): <subject>` — scope SHOULD be included whenever a sensible one exists (subsystem, package, or area name). Example: `feat(player): add waveform preview`, `fix(backend): handle b23.tv redirects`. Bare `feat: ...` is allowed only when no meaningful scope applies.
 
 Subject line: imperative mood, lowercase, no trailing period, ≤ 72 chars. Use the body for the *why*, not the *what*.
+
+## Git author identity
+
+All commits in this repo MUST be authored AND committed by:
+
+```
+memset0 <memset0@outlook.com>
+```
+
+Co-author lines for AI assistants are welcome (e.g. `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` in the trailer), but the primary author/committer is always memset0. When committing programmatically, set both `GIT_AUTHOR_*` and `GIT_COMMITTER_*` env vars (or local `user.name` / `user.email`) accordingly.
+
+## Auto commit + push workflow
+
+Whenever a new feature is implemented or a bug is fixed, commit it under a Conventional Commit message (per the section above) AND push immediately. Don't batch unrelated changes into a single commit; one commit per feature/fix.

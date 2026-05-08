@@ -971,14 +971,66 @@ body[data-density="compact"] .q-row { grid-template-columns: 64px 1fr auto; }
 
 /* ── Mobile responsive ───────────────────────────────────── */
 @media (max-width: 920px) {
-  .stage { grid-template-columns: 1fr; }
+  .stage { grid-template-columns: 1fr; padding: 0 16px 16px; }
   .side-col { position: static; max-height: none; }
-  .topbar { padding: 14px 16px 8px; flex-wrap: wrap; }
-  .stage { padding: 0 16px 16px; }
+  .topbar { padding: 14px 16px 8px; flex-wrap: wrap; gap: 10px; }
+  .topbar-right { flex-wrap: wrap; gap: 8px; }
   .brand-logo { font-size: 22px; }
+  .brand-mono { font-size: 10px; }
   .ctl-row { flex-wrap: wrap; }
-  .ctl-meta { order: 5; flex-basis: 100%; }
+  .ctl-meta { order: 5; flex-basis: 100%; min-width: 0; }
   .ctl-vol { order: 6; flex-basis: 100%; }
   .ctl-vol-range { flex: 1; width: auto; }
   .dm-item { font-size: 18px; }
+  /* compact the layout switch so the topbar-right row can fit */
+  .lay-pill { padding: 7px 10px; font-size: 10px; letter-spacing: 0.1em; }
+  /* keep a usable name length without pushing past the row */
+  .me-name { max-width: 90px; }
+  .users-strip { gap: 8px; padding: 6px 10px; }
+}
+
+/* phones (≤ 480px) — tighten cards / rows so nothing pokes past the viewport */
+@media (max-width: 480px) {
+  body[data-density="comfy"] { --pad: 12px; --gap-y: 10px; }
+  .topbar { padding: 12px 12px 6px; }
+  .stage { padding: 0 12px 12px; gap: 12px; }
+  .brand-mono { display: none; }
+  .topbar-right { width: 100%; justify-content: flex-start; }
+  /* slim the me-chip — drop the trailing edit affordance */
+  .me-chip { padding: 5px 10px 5px 7px; }
+  .me-edit { display: none; }
+  .me-name { max-width: 110px; font-size: 12px; }
+
+  /* queue / history rows: smaller thumb, smaller actions, tighter gap */
+  .q-row { grid-template-columns: 56px 1fr auto; gap: 8px; padding: 10px; }
+  body[data-density="compact"] .q-row { grid-template-columns: 48px 1fr auto; }
+  .q-actions { gap: 2px; }
+  .q-title { font-size: 13px; }
+  .q-sub { font-size: 11px; }
+  .icon-btn { width: 28px; height: 28px; }
+
+  .hist-row { grid-template-columns: 26px 1fr auto; padding: 8px 10px; gap: 8px; }
+
+  .add-input { padding: 12px; }
+  .add-icon { display: none; }
+  .add-field { padding: 9px 10px; font-size: 13px; }
+  .nbtn-md { padding: 8px 12px; font-size: 12px; }
+
+  .tab { padding: 9px 10px; font-size: 12px; }
+  .tab-count { padding: 1px 6px; font-size: 10px; min-width: 20px; }
+
+  .dm-input { padding: 6px 6px 6px 12px; }
+  .dm-send { padding: 6px 10px; font-size: 11px; }
+  .dm-item { font-size: 16px; }
+  /* the danmaku layer should not cover the controls when the topbar wraps */
+  .dm-layer { top: 110px; height: 50vh; }
+}
+
+/* very narrow (older / smaller phones) */
+@media (max-width: 360px) {
+  .lay-pill { padding: 6px 8px; font-size: 9.5px; letter-spacing: 0.06em; }
+  .room-slug { font-size: 11px; }
+  .room-tag { font-size: 8.5px; letter-spacing: 0.15em; }
+  .q-row { grid-template-columns: 48px 1fr auto; }
+  .icon-btn { width: 26px; height: 26px; }
 }

@@ -91,6 +91,12 @@ body[data-font="display"] {
   min-width: 0;
   overflow: hidden;
   position: relative;
+}
+/* Edge-fade mask only fires when the inner title is actually wider than
+ * the wrapper (i.e. the marquee animation kicks in). Short titles that
+ * fit fully should render edge-to-edge with no fade so no characters
+ * are unnecessarily dimmed. */
+.np-title-wrap.is-overflowing {
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 36px), transparent);
           mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 36px), transparent);
 }

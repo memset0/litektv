@@ -139,7 +139,7 @@ function NowPlayingBar({ current, hasPrev, hasNext, onNext, onPrev }: NowPlaying
         onClick={onNext}
         disabled={!hasNext && !isLive}
       />
-      <div className="np-title-wrap" ref={wrapRef}>
+      <div className={`np-title-wrap ${overflow ? "is-overflowing" : ""}`} ref={wrapRef}>
         <div
           className={`np-title ${overflow ? "is-marquee" : ""} ${isLive ? "" : "is-dim"}`}
           ref={titleRef}

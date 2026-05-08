@@ -728,6 +728,13 @@
 .switch.is-on .switch-knob { transform: translateX(20px); }
 
 /* ── QR sheet ────────────────────────────────────────────── */
+/* The share-room popup is the secondary color category (cyan), distinct
+   from the queue/add chrome (pink). Override .sheet's default pink-tinted
+   border + glow so the share popup signals its category at a glance. */
+.sheet.sheet-qr {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px var(--neon-cyan), 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(44, 245, 255, 0.25);
+}
 .sheet-qr-body { align-items: center; }
 .qr-hint { color: var(--ink-dim); font-size: 13px; text-align: center; margin: 0 0 6px; }
 .qr-frame {
@@ -927,10 +934,10 @@
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .fab-qr-card {
   background: linear-gradient(180deg, #1a0a2e, #0c0420);
-  border: 1px solid var(--neon-pink);
+  border: 1px solid var(--neon-cyan);
   border-radius: 12px;
   padding: 18px 22px 22px;
-  box-shadow: 0 0 40px rgba(255, 46, 166, 0.45), inset 0 0 20px rgba(0,0,0,0.4);
+  box-shadow: 0 0 40px rgba(44, 245, 255, 0.45), inset 0 0 20px rgba(0, 0, 0, 0.4);
   width: 320px;
 }
 .fab-qr-head {
@@ -950,7 +957,7 @@
   cursor: pointer;
   line-height: 1;
 }
-.fab-qr-head .sheet-x:hover { color: var(--neon-pink); }
+.fab-qr-head .sheet-x:hover { color: var(--neon-cyan); }
 .fab-qr-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .qr-url {
   font-family: var(--font-mono);
@@ -970,7 +977,7 @@
   color: var(--neon-cyan);
   letter-spacing: 0.12em;
 }
-.qr-slug b { color: var(--neon-pink); font-weight: 700; }
+.qr-slug b { color: var(--neon-cyan); font-weight: 700; }
 
 /* ── Mobile responsive ───────────────────────────────────── */
 @media (max-width: 920px) {

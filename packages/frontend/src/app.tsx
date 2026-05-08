@@ -513,58 +513,73 @@ export default function App() {
           </div>
           <div className="list-scroll scrollbar">
             {tab === "queue" ? (
-              room.queue.length === 0 ? (
-                <div className="empty">
-                  {current ? "Queue empty — drop more links ♪" : "Paste a link to start the night ♪"}
-                </div>
+              !current && room.queue.length === 0 ? (
+                <div className="empty">Paste a link to start the night ♪</div>
               ) : (
-                room.queue.map((s, i) => {
-                  const isDragging = draggingId === s.id;
-                  const isDropTarget =
-                    dragOverId === s.id && draggingId !== null && draggingId !== s.id;
-                  return (
-                    <div
-                      key={s.id}
-                      className="q-drag-wrap"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        try { e.dataTransfer.setData("text/plain", s.id); } catch {}
-                        setDraggingId(s.id);
-                      }}
-                      onDragOver={(e) => {
-                        if (!draggingId) return;
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                        if (dragOverId !== s.id) setDragOverId(s.id);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (draggingId && draggingId !== s.id) {
-                          reorderSong(draggingId, i);
-                        }
-                        setDraggingId(null);
-                        setDragOverId(null);
-                      }}
-                      onDragEnd={() => {
-                        setDraggingId(null);
-                        setDragOverId(null);
-                      }}
-                    >
-                      <QueueRow
-                        song={s}
-                        idx={i}
-                        isCurrent={false}
-                        onTop={topSong}
-                        onDelete={deleteSong}
-                        onToggleFavorite={toggleFavorite}
-                        isFavorited={favOps.isFavorited(s)}
-                        dragging={isDragging}
-                        dropTarget={isDropTarget}
-                      />
-                    </div>
-                  );
-                })
+                <>
+                  {current && (
+                    <QueueRow
+                      song={current}
+                      idx={0}
+                      isCurrent={true}
+                      onTop={topSong}
+                      onDelete={deleteSong}
+                      onToggleFavorite={toggleFavorite}
+                      isFavorited={favOps.isFavorited(current)}
+                    />
+                  )}
+                  {room.queue.length === 0 && current ? (
+                    <div className="empty">Queue empty — drop more links ♪</div>
+                  ) : (
+                    room.queue.map((s, i) => {
+                      const isDragging = draggingId === s.id;
+                      const isDropTarget =
+                        dragOverId === s.id && draggingId !== null && draggingId !== s.id;
+                      return (
+                        <div
+                          key={s.id}
+                          className="q-drag-wrap"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.effectAllowed = "move";
+                            try { e.dataTransfer.setData("text/plain", s.id); } catch {}
+                            setDraggingId(s.id);
+                          }}
+                          onDragOver={(e) => {
+                            if (!draggingId) return;
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            if (dragOverId !== s.id) setDragOverId(s.id);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (draggingId && draggingId !== s.id) {
+                              reorderSong(draggingId, i);
+                            }
+                            setDraggingId(null);
+                            setDragOverId(null);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingId(null);
+                            setDragOverId(null);
+                          }}
+                        >
+                          <QueueRow
+                            song={s}
+                            idx={i}
+                            isCurrent={false}
+                            onTop={topSong}
+                            onDelete={deleteSong}
+                            onToggleFavorite={toggleFavorite}
+                            isFavorited={favOps.isFavorited(s)}
+                            dragging={isDragging}
+                            dropTarget={isDropTarget}
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </>
               )
             ) : (
               <HistoryList

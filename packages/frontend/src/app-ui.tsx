@@ -198,7 +198,25 @@ export const Glyph = {
       <path d="M12 5v14M5 12h14" />
     </svg>
   ),
+  mic: (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
+      <path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z" />
+      <path d="M19 11a7 7 0 01-14 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 18v3M9 21h6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
 };
+
+// NowPlayingPlate — replaces <CoverThumb> in the queue's pinned current
+// row. Same outer dimensions as a CoverThumb so the row chrome matches.
+// Visual: a dark scrim over --card-hi, with a centered pink mic glyph.
+export function NowPlayingPlate() {
+  return (
+    <div className="song-card-cover-now-playing" aria-hidden="true">
+      {Glyph.mic}
+    </div>
+  );
+}
 
 interface AddedBy {
   id?: string;
@@ -457,7 +475,7 @@ export function QueueRow({
     { kind: "time", ts: song.addedAt },
   ];
   if (isCurrent) meta.push({ kind: "now" });
-  const cover = isCurrent ? null : <CoverThumb source={song.source} videoId={song.videoId} />;
+  const cover = isCurrent ? <NowPlayingPlate /> : <CoverThumb source={song.source} videoId={song.videoId} />;
   return (
     <SongCard
       songKey={song.id}

@@ -422,6 +422,18 @@
     linear-gradient(135deg, rgba(164, 92, 255, 0.18), rgba(44, 245, 255, 0.06)),
     var(--bg-2);
 }
+.song-card-cover-now-playing {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  color: var(--neon-pink);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78)),
+    var(--card-hi);
+  text-shadow: 0 0 8px rgba(255, 46, 166, 0.6);
+}
+.song-card-cover-now-playing svg {
+  filter: drop-shadow(0 0 6px rgba(255, 46, 166, 0.55));
+}
 
 .song-card-body {
   /* flex:1 so when the row is in flex mode (no cover) the body grows

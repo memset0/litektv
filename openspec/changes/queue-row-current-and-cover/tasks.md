@@ -6,13 +6,13 @@
 
 ## 2. Pinned current track at the top of the queue
 
-- [ ] 2.1 Add `Glyph.mic` to the `Glyph` collection in `app-ui.tsx` — a microphone SVG sized 18×18 to fit centered inside a 48px plate.
-- [ ] 2.2 Add `<NowPlayingPlate>` component in `app-ui.tsx` (sibling of `CoverThumb`) — returns a `<div className="song-card-cover-now-playing">` with the mic glyph inside. No props needed.
-- [ ] 2.3 Add CSS for `.song-card-cover-now-playing` in `ktv-extras.css` per design D2: 48×48, dark scrim over `--card-hi`, pink mic centered.
-- [ ] 2.4 Update `QueueRow` in `app-ui.tsx` so when `isCurrent={true}`, the cover slot renders `<NowPlayingPlate>` (not the new `<CoverThumb>` and not null).
-- [ ] 2.5 In `app.tsx`'s queue render path, when `room.current` is non-null, emit a `<QueueRow>` for it FIRST (with `isCurrent={true}` and not wrapped in the `q-drag-wrap` element so it's non-draggable), then iterate `room.queue` as before.
-- [ ] 2.6 Verify visually: pinned row has the plate, NOW PLAYING tag, glow border, no cover image.
-- [ ] 2.7 Commit: `feat(ui): pin currently-playing track as queue row 0 with now-playing plate`
+- [x] 2.1 `Glyph.mic` added — a 22×22 microphone SVG with the cap, stand, and arc, fill follows currentColor so the parent's pink color tint applies.
+- [x] 2.2 `<NowPlayingPlate>` component added in `app-ui.tsx` (named export). Renders the plate `<div>` with the mic glyph inside.
+- [x] 2.3 `.song-card-cover-now-playing` CSS added in `ktv.css` next to the existing `.song-card-cover-*` rules: dark scrim over `--card-hi`, pink mic center, with a soft drop-shadow on the SVG to make the mic glow.
+- [x] 2.4 `QueueRow` cover slot now picks `<NowPlayingPlate />` when `isCurrent`, else `<CoverThumb>` (replaces the previous null fallback).
+- [x] 2.5 `app.tsx` queue render path: when `room.current` is non-null, emit a `<QueueRow>` for it FIRST (NOT wrapped in `q-drag-wrap`, so non-draggable per the existing `Drag-to-reorder rows` requirement); then iterate `room.queue` as before. Also fixed empty-state copy: shows `Queue empty — drop more links ♪` only when there IS a current track but no pending; shows `Paste a link to start the night ♪` only when both are empty.
+- [x] 2.6 Build clean. Live verification deferred to user.
+- [x] 2.7 Commit: `feat(ui): pin currently-playing track as queue row 0 with now-playing plate`
 
 ## 3. Disable destructive actions on current and next-up rows
 

@@ -457,10 +457,11 @@ export function QueueRow({
     { kind: "time", ts: song.addedAt },
   ];
   if (isCurrent) meta.push({ kind: "now" });
+  const cover = isCurrent ? null : <CoverThumb source={song.source} videoId={song.videoId} />;
   return (
     <SongCard
       songKey={song.id}
-      cover={null}
+      cover={cover}
       title={song.title}
       meta={meta}
       active={!!isCurrent}

@@ -1,8 +1,8 @@
 ## 1. Cover thumbnails on pending queue rows
 
-- [ ] 1.1 In `packages/frontend/src/app-ui.tsx`, change `QueueRow`'s `cover={null}` to render `<CoverThumb source={song.source} videoId={song.videoId} />` when `!isCurrent`. Pending rows now have covers.
-- [ ] 1.2 Verify visually (live build): a pending queue row's cover column matches a history row's column pixel-for-pixel.
-- [ ] 1.3 Commit: `feat(ui): queue rows render cover thumbnails (parity with history/catalog)`
+- [x] 1.1 `QueueRow` in `app-ui.tsx` now renders `<CoverThumb source={song.source} videoId={song.videoId} />` for pending rows; the current row still passes `null` (Feature 2 will replace that with the plate).
+- [x] 1.2 Build clean. Live verification deferred to user.
+- [x] 1.3 Commit: `feat(ui): queue rows render cover thumbnails (parity with history/catalog)`
 
 ## 2. Pinned current track at the top of the queue
 

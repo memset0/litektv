@@ -826,7 +826,7 @@
 }
 .dm-field::placeholder { color: var(--ink-mute); }
 .dm-send {
-  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
   border: 0;
   color: white;
   border-radius: 8px;
@@ -835,9 +835,9 @@
   font-weight: 700;
   display: inline-flex; align-items: center;
   cursor: pointer;
-  box-shadow: 0 0 0 1px rgba(44,245,255,0.4), 0 0 14px rgba(44,245,255,0.3);
+  box-shadow: 0 0 0 1px rgba(255,46,166,0.4), 0 0 18px rgba(255,46,166,0.3);
 }
-.dm-send:hover { box-shadow: 0 0 0 1px rgba(44,245,255,0.6), 0 0 22px rgba(44,245,255,0.55); }
+.dm-send:hover { box-shadow: 0 0 0 1px rgba(255,46,166,0.6), 0 0 26px rgba(255,46,166,0.55); }
 
 /* ── History list ────────────────────────────────────────── */
 .hist-list {

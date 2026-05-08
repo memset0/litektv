@@ -9,17 +9,41 @@
   // Identity-only. NOT used for room state.
   const ME_KEY = "ktv:me";
 
+  // Reserved single-segment paths that must NOT be treated as a room slug
+  // (kept in sync with the backend's catch-all in src/index.ts).
+  const RESERVED_PATHS = new Set([
+    "", "api", "ws", "favicon.ico", "robots.txt", "sitemap.xml",
+    "KTV.html", "index.html", "state.jsx", "app.jsx", "app-ui.jsx",
+    "player.jsx", "urlparse.jsx", "tweaks-panel.jsx",
+    "ktv.css", "ktv-extras.css", "BACKEND_SPEC.md", "LICENSE",
+  ]);
+  const SLUG_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+  function randomSlug() {
+    // 6-digit number — easy to read out loud / type. Collisions are fine: the
+    // server lazily creates the room on first connect, so two parties picking
+    // the same digits just end up in the same room.
+    return String(100000 + Math.floor(Math.random() * 900000));
+  }
+
   function getSlug() {
-    const url = new URL(window.location.href);
-    let slug = url.searchParams.get("room") || (url.hash.match(/room=([^&]+)/) || [])[1];
-    if (!slug) {
-      const adj = ["neon", "midnight", "velvet", "echo", "moon", "tiger", "comet", "lotus", "ghost", "fox"];
-      const noun = ["lounge", "alley", "wave", "drive", "static", "river", "tape", "den", "loop", "bay"];
-      slug = adj[Math.floor(Math.random()*adj.length)] + "-" + noun[Math.floor(Math.random()*noun.length)] + "-" + Math.floor(Math.random()*900+100);
-      url.searchParams.set("room", slug);
-      window.history.replaceState({}, "", url.toString());
+    // 1) /<slug> in the pathname (preferred, pretty URL)
+    const path = window.location.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+    if (path && !path.includes("/") && !path.includes(".") &&
+        !RESERVED_PATHS.has(path) && SLUG_RE.test(path)) {
+      return path;
     }
-    return slug;
+    // 2) ?room=<slug> or #room=<slug> — legacy. Migrate to pretty URL.
+    const url = new URL(window.location.href);
+    const legacy = url.searchParams.get("room") || (url.hash.match(/room=([^&]+)/) || [])[1];
+    if (legacy && SLUG_RE.test(legacy)) {
+      window.history.replaceState({}, "", "/" + legacy);
+      return legacy;
+    }
+    // 3) freshly generated random numeric slug
+    const fresh = randomSlug();
+    window.history.replaceState({}, "", "/" + fresh);
+    return fresh;
   }
 
   const SLUG = getSlug();

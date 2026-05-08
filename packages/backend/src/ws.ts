@@ -42,6 +42,7 @@ const songSchema = z.object({
   source: z.enum(["yt", "bili"]),
   videoId: z.string().min(1).max(64),
   page: z.number().int().min(1).optional(),
+  cid: z.number().int().nonnegative().optional(),
   title: z.string().max(300),
   thumb: z.string().max(1024).nullable().optional(),
   duration: z.number().nonnegative().optional(),
@@ -65,6 +66,7 @@ const songRefSchema = z.object({
   source: z.enum(["yt", "bili"]),
   videoId: z.string().min(1).max(64),
   page: z.number().int().min(1).optional(),
+  cid: z.number().int().nonnegative().optional(),
 });
 
 // Strict — unknown keys cause validation to fail so the server can return
@@ -75,6 +77,7 @@ const favoriteAddSongSchema = z
     source: z.enum(["yt", "bili"]),
     videoId: z.string().min(1).max(64),
     page: z.number().int().min(1).optional(),
+    cid: z.number().int().nonnegative().optional(),
     title: z.string().max(300).optional(),
     thumb: z.string().max(1024).nullable().optional(),
     duration: z.number().nonnegative().optional(),
@@ -301,6 +304,7 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
           source: sng.source,
           videoId: sng.videoId,
           page: sng.page,
+          cid: sng.cid,
           title: clampString(sng.title, 300) || `${sng.source} ${sng.videoId}`,
           thumb: sng.thumb ?? null,
           duration: sng.duration,
@@ -314,6 +318,7 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
       } else if (parsed.ref) {
         const ref = parsed.ref;
         const page = ref.source === "bili" ? ref.page ?? 1 : undefined;
+        let cid: number | undefined = ref.cid;
         const cached = findFavorite(
           ref.source,
           ref.videoId,
@@ -322,21 +327,29 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         let title: string | undefined = cached?.title;
         let thumb: string | null | undefined = cached?.thumb ?? null;
         let duration: number | undefined = cached?.duration;
-        if (!title) {
+        // Re-parse when (a) we don't have a title yet, OR (b) it's
+        // Bilibili and we still don't know cid (the favorites cache
+        // does not store cid in v1, so a catalog re-add for an
+        // already-known favorite still needs an upstream call to
+        // pick up the per-page cid).
+        const needsReparse = !title || (ref.source === "bili" && cid === undefined);
+        if (needsReparse) {
           try {
             const meta = await parseRef(ref);
-            title = meta.title;
-            thumb = meta.thumb ?? null;
-            duration = meta.duration;
+            title = title ?? meta.title;
+            thumb = thumb ?? meta.thumb ?? null;
+            duration = duration ?? meta.duration;
+            cid = cid ?? meta.cid;
           } catch {
-            title = `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`;
+            title = title ?? `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`;
           }
         }
         song = {
           source: ref.source,
           videoId: ref.videoId,
           page,
-          title,
+          cid,
+          title: title ?? `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`,
           thumb: thumb ?? null,
           duration,
           addedBy: fallbackAddedBy,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseLink, parseRef } from "./parser.js";
 
-const ALLOWED_KEYS = ["source", "videoId", "page", "title", "thumb", "duration"];
+const ALLOWED_KEYS = ["source", "videoId", "page", "cid", "title", "thumb", "duration"];
 
 const ORIGINAL_FETCH = globalThis.fetch;
 

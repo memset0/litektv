@@ -12,6 +12,14 @@ export interface Song {
   source: Source;
   videoId: string;
   page?: number;
+  /**
+   * Bilibili content-id of the specific page. Optional; when present the
+   * frontend uses it as the most precise selector for the embed iframe
+   * (Bilibili's player.html honours `&cid=N` more reliably than `&page=N`
+   * across devices). Set by the parser from the upstream
+   * `/x/web-interface/view` `pages[]` array. Always undefined for YouTube.
+   */
+  cid?: number;
   title: string;
   thumb?: string | null;
   duration?: number;
@@ -48,6 +56,8 @@ export interface ParsedSongMeta {
   source: Source;
   videoId: string;
   page?: number;
+  /** Bilibili-only per-page content-id. See Song.cid for the rationale. */
+  cid?: number;
   title: string;
   thumb?: string | null;
   duration?: number;

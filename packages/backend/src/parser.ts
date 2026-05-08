@@ -138,21 +138,33 @@ async function fetchBilibiliMeta(
         title?: string;
         pic?: string;
         duration?: number;
-        pages?: { page: number; part: string; duration: number }[];
+        cid?: number;
+        pages?: { page: number; part: string; duration: number; cid?: number }[];
       };
     };
     if (j.code !== 0 || !j.data) return {};
     const d = j.data;
     let title = d.title;
     let duration = d.duration;
-    if (d.pages && d.pages.length > 1 && page >= 1) {
-      const pg = d.pages.find((p) => p.page === page);
+    // Pick the cid for the requested page; fall back to the first page's
+    // cid, then to the top-level data.cid (single-part videos sometimes
+    // report `cid` only at the top level).
+    let cid: number | undefined;
+    if (d.pages && d.pages.length > 0) {
+      const pg = d.pages.find((p) => p.page === page) ?? d.pages[0];
       if (pg) {
-        title = `${d.title} - P${pg.page} ${pg.part}`;
-        duration = pg.duration;
+        cid = pg.cid;
+        // Multi-page: also fold `- P{n} {part}` into the title and use
+        // the per-page duration. Single-page videos skip this — their
+        // top-level title already reads naturally.
+        if (d.pages.length > 1 && page >= 1 && pg.page === page) {
+          title = `${d.title} - P${pg.page} ${pg.part}`;
+          duration = pg.duration;
+        }
       }
     }
-    return { title, thumb: d.pic, duration };
+    if (cid === undefined) cid = d.cid;
+    return { title, thumb: d.pic, duration, cid };
   } catch {
     return {};
   }
@@ -218,6 +230,7 @@ async function finalizeMeta(ref: NormalizedRef): Promise<ParsedSongMeta> {
     source: ref.source,
     videoId: ref.videoId,
     page: ref.source === "bili" ? ref.page ?? 1 : undefined,
+    cid: ref.source === "bili" ? meta.cid : undefined,
     title: meta.title ?? `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`,
     // Always return a same-origin proxy URL (handled by the thumbnail-cache
     // capability at /api/thumb). The upstream metadata fetch may also return a

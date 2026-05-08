@@ -1,17 +1,17 @@
 ## 0. Pre-flight (block on these before doing anything destructive)
 
-- [ ] 0.1 `git status` clean on `master`; `git pull --ff-only origin master`
+- [x] 0.1 `git status` clean on `master`; `git pull --ff-only origin master`
 - [x] 0.2 `add-favorites` is archived (commit `d26e0ed`, archived 2026-05-08).
 - [x] 0.3 `unify-song-card` is archived (commit `135bcc0`, archived 2026-05-08).
-- [ ] 0.4 Take a backup snapshot of `/root/yulun/litektv/backend/data/litektv.db` (`cp` to `litektv.db.bak.<date>`) — DB is not modified by this change but the safety cost is zero
+- [x] 0.4 Backup snapshot: `backend/data/litektv.db.bak.2026-05-08` (5.5 MB, identical to live DB at apply start).
 
 ## 1. Workspace skeleton
 
-- [ ] 1.1 Add `pnpm-workspace.yaml` at repo root with `packages: [packages/*]`
-- [ ] 1.2 Add repo-root `package.json` (private, no version) with: `name: "litektv"`, `private: true`, `engines.node: ">=20"`, `engines.pnpm: ">=10"`, scripts `dev` / `build` / `start` / `typecheck` / `test` (per `design.md` D5)
-- [ ] 1.3 Move `pnpm-lock.yaml` from `packages/backend/` to repo root: `git mv packages/backend/pnpm-lock.yaml ./pnpm-lock.yaml` then run `pnpm install` at root and let pnpm rewrite the lockfile structure for the new workspace topology
-- [ ] 1.4 Verify root `pnpm install` resolves cleanly (no warnings about `better-sqlite3` rebuild — backend's `pnpm.onlyBuiltDependencies` should still take effect)
-- [ ] 1.5 Commit: `chore(workspace): move pnpm-lock to repo root, add pnpm-workspace.yaml`
+- [x] 1.1 Add `pnpm-workspace.yaml` at repo root with `packages: [packages/*]`
+- [x] 1.2 Add repo-root `package.json` (private, no version) with: `name: "litektv"`, `private: true`, `engines.node: ">=20"`, `engines.pnpm: ">=10"`, scripts `dev` / `build` / `start` / `typecheck` / `test` (per `design.md` D5)
+- [x] 1.3 Move `pnpm-lock.yaml` from `packages/backend/` to repo root via `git mv`; running `pnpm install` at root rewrote the lockfile for the workspace topology.
+- [x] 1.4 Root `pnpm install` resolves cleanly. Note: pnpm v10 requires `pnpm.onlyBuiltDependencies` at the workspace ROOT (not in backend's package.json), so it was moved to root `package.json` and `esbuild` was added to the allowlist (vitest dep). Backend's local `pnpm` block was deleted.
+- [x] 1.5 Commit: `chore(workspace): move pnpm-lock to repo root, add pnpm-workspace.yaml`
 
 ## 2. Frontend package + Vite scaffold
 

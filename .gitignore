@@ -4,6 +4,16 @@
 # the top-level backend/ dir, not packages/backend/.
 /backend/
 
+# pnpm workspace install artefacts
+node_modules/
+**/node_modules/
+
+# Frontend build output (Vite)
+packages/frontend/dist/
+
+# Backend compiled output
+packages/backend/dist/
+
 # OS / editor noise
 .DS_Store
 *.swp

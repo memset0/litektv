@@ -53,22 +53,7 @@ export interface ParsedSongMeta {
   duration?: number;
 }
 
-// ── Accounts / sessions / favorites ────────────────────────────────────────
-
-export interface Account {
-  accountId: string;
-  name: string;
-  emoji: string;
-  createdAt: number;
-  lastSeen: number;
-}
-
-export interface Session {
-  token: string;
-  accountId: string;
-  createdAt: number;
-  lastSeen: number;
-}
+// ── Favorites ──────────────────────────────────────────────────────────────
 
 export interface Favorite {
   source: Source;
@@ -80,7 +65,9 @@ export interface Favorite {
   addedAt: number;
 }
 
-export type OwnerKey = `acct:${string}` | `anon:${string}`;
+/** Per-userId owner key for the favorites table. Identity comes from the
+ *  client's stable localStorage UUID — there is no account layer. */
+export type OwnerKey = `anon:${string}`;
 
 /** Canonical reference to a video, sufficient to re-fetch metadata. */
 export interface SongRef {

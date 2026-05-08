@@ -1,13 +1,10 @@
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
-import { AuthError, login as authLogin, signup as authSignup } from "./authService.js";
 import { config } from "./config.js";
 import { parseLink, parseRef, thumbUrlFor } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
 
 const parseLimiter = new RateLimiter(config.rateLimits.parse.perMinute);
-const authIpLimiter = new RateLimiter(config.rateLimits["auth.ip"].perMinute);
-const authNameLimiter = new RateLimiter(config.rateLimits["auth.name"].perMinute);
 
 // Accept EITHER raw share text (`url`) OR an already-canonical reference
 // (`ref`). Sending both is rejected so callers pick one path explicitly.
@@ -86,42 +83,6 @@ export function createRestRouter(): express.Router {
     res.setHeader("cache-control", "public, max-age=86400");
     res.redirect(302, target);
   });
-
-  const authBody = z.object({
-    name: z.string().min(3).max(24),
-    password: z.string().min(8).max(200),
-    emoji: z.string().max(8).optional(),
-    userId: z.string().min(4).max(64).optional(),
-  });
-
-  const authHandler = (kind: "signup" | "login") => async (req: Request, res: Response) => {
-    const parsed = authBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "bad request", detail: parsed.error.flatten() });
-      return;
-    }
-    const ip = req.ip ?? "unknown";
-    if (
-      !authIpLimiter.allow(`ip:${ip}`) ||
-      !authNameLimiter.allow(`name:${parsed.data.name.toLowerCase()}`)
-    ) {
-      res.status(429).json({ error: "rate limited" });
-      return;
-    }
-    try {
-      const ok =
-        kind === "signup"
-          ? await authSignup(parsed.data)
-          : await authLogin(parsed.data);
-      res.json(ok);
-    } catch (e) {
-      const msg = e instanceof AuthError ? e.message : `${kind} failed`;
-      res.status(400).json({ error: msg });
-    }
-  };
-
-  r.post("/api/auth/signup", authHandler("signup"));
-  r.post("/api/auth/login", authHandler("login"));
 
   return r;
 }

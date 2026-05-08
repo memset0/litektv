@@ -1,34 +1,12 @@
 ## ADDED Requirements
 
-### Requirement: Account, session, and favorites tables
+### Requirement: Favorites table
 
-The backend SHALL create the following SQLite tables on boot (idempotent `CREATE TABLE IF NOT EXISTS`), in addition to the existing `rooms` table:
+The backend SHALL create the following SQLite table on boot (idempotent `CREATE TABLE IF NOT EXISTS`), in addition to the existing `rooms` table:
 
 ```
-CREATE TABLE accounts (
-  account_id    TEXT PRIMARY KEY,
-  name          TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  emoji         TEXT NOT NULL DEFAULT '🎤',
-  password_hash TEXT NOT NULL,
-  created_at    INTEGER NOT NULL,
-  last_seen     INTEGER NOT NULL
-);
-
-CREATE TABLE sessions (
-  token        TEXT PRIMARY KEY,
-  account_id   TEXT NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
-  created_at   INTEGER NOT NULL,
-  last_seen    INTEGER NOT NULL
-);
-
-CREATE TABLE user_links (
-  user_id      TEXT PRIMARY KEY,
-  account_id   TEXT REFERENCES accounts(account_id) ON DELETE SET NULL,
-  linked_at    INTEGER NOT NULL
-);
-
 CREATE TABLE favorites (
-  owner_key    TEXT NOT NULL,
+  owner_key    TEXT NOT NULL,                -- "anon:<userId>"
   source       TEXT NOT NULL,
   video_id     TEXT NOT NULL,
   page         INTEGER NOT NULL DEFAULT 0,
@@ -44,15 +22,15 @@ CREATE INDEX IF NOT EXISTS idx_favorites_owner_added ON favorites(owner_key, add
 
 WAL journal mode (already enabled for `rooms`) SHALL apply to the whole database.
 
-#### Scenario: Fresh install creates all tables
+#### Scenario: Fresh install creates the favorites table
 
 - **WHEN** the backend starts against an empty `DB_PATH`
-- **THEN** all of `rooms`, `accounts`, `sessions`, `user_links`, and `favorites` SHALL exist with the schemas above
+- **THEN** both `rooms` and `favorites` SHALL exist with the schemas above
 
 #### Scenario: Upgrade keeps existing data
 
 - **WHEN** the backend starts against a database that has only the `rooms` table
-- **THEN** the four new tables SHALL be created without modifying or migrating any existing `rooms` row
+- **THEN** the `favorites` table SHALL be created without modifying or migrating any existing `rooms` row
 
 ### Requirement: Favorites are not part of room state
 
@@ -62,15 +40,6 @@ Favorites SHALL be persisted in the `favorites` table only and SHALL NOT appear 
 
 - **WHEN** the GC job evicts and `DELETE FROM rooms WHERE slug = ?` for an idle room whose participants had personal favorites
 - **THEN** every row in `favorites` for those users' `owner_key`s SHALL remain present and queryable
-
-### Requirement: Anonymous-to-account merge is transactional
-
-The merge of `anon:<userId>` favorites into `acct:<account_id>` (triggered by a successful login or signup from an anonymous connection) SHALL run inside a single SQLite transaction containing the `INSERT OR IGNORE` for each favorite, the `DELETE FROM favorites WHERE owner_key = 'anon:<userId>'`, and the `INSERT OR REPLACE INTO user_links`. If any step fails, the whole transaction SHALL be rolled back.
-
-#### Scenario: Crash during merge
-
-- **WHEN** the process is killed mid-merge after the inserts but before the delete
-- **THEN** on restart the database SHALL be in either the pre-merge state or the post-merge state, never a partial state with duplicates under both `owner_key`s
 
 ### Requirement: Stored fields remain canonical
 

@@ -8,7 +8,7 @@
 (function () {
   const __UI = window.KTV.UI;
 
-  function CatalogModal({ open, onClose, onAddRef, account }) {
+  function CatalogModal({ open, onClose, onAddRef }) {
     const [favs, favOps] = window.KTV.useFavorites();
     const [q, setQ] = React.useState("");
     const [recentlyAdded, setRecentlyAdded] = React.useState({});
@@ -49,11 +49,6 @@
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            {!account && favs.length >= 3 ? (
-              <div className="catalog-account-nudge">
-                登录账号可在不同设备保留你的收藏 ✦
-              </div>
-            ) : null}
           </div>
           <div className="catalog-list scrollbar">
             {favs.length === 0 ? (

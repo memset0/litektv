@@ -3,17 +3,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { config } from "./config.js";
 import {
-  AuthError,
-  attachSession,
-  login as authLogin,
-  logout as authLogout,
-  signup as authSignup,
-  updateProfile as authUpdateProfile,
-} from "./authService.js";
-import {
   addFavorite,
   findFavorite,
-  getAccountById,
   listFavorites,
   removeFavorite,
 } from "./db.js";
@@ -36,13 +27,11 @@ import {
   trackPrev,
   type Room,
 } from "./rooms.js";
-import type { Account, Favorite, OwnerKey, Song } from "./types.js";
+import type { Favorite, OwnerKey, Song } from "./types.js";
 import { clampString, now, uuid } from "./util.js";
 
 const queueAddLimiter = new RateLimiter(config.rateLimits["queue.add"].perMinute);
 const danmakuLimiter = new RateLimiter(config.rateLimits.danmaku.perMinute);
-const authIpLimiter = new RateLimiter(config.rateLimits["auth.ip"].perMinute);
-const authNameLimiter = new RateLimiter(config.rateLimits["auth.name"].perMinute);
 const favoriteLimiter = new RateLimiter(config.rateLimits.favorite.perMinute);
 
 const songSchema = z.object({
@@ -67,7 +56,6 @@ const helloSchema = z.object({
   name: z.string().max(16).default(""),
   emoji: z.string().max(8).default("🎤"),
   anonymous: z.boolean().default(false),
-  token: z.string().min(8).max(256).optional(),
 });
 
 const songRefSchema = z.object({
@@ -77,8 +65,8 @@ const songRefSchema = z.object({
 });
 
 // Strict — unknown keys cause validation to fail so the server can return
-// the spec-mandated `{type:"error", error:"unknown field"}` rather than
-// silently storing whatever extra fields the client sent.
+// `{type:"error", error:"unknown field"}` rather than silently storing
+// whatever extra fields the client sent.
 const favoriteAddSongSchema = z
   .object({
     source: z.enum(["yt", "bili"]),
@@ -95,8 +83,6 @@ const incoming = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heartbeat") }),
   z.object({
     type: z.literal("queue.add"),
-    // `song` is the legacy full-song payload. `ref` is a canonical ref
-    // (favorite identity) and triggers a metadata lookup server-side.
     song: songSchema.optional(),
     ref: songRefSchema.optional(),
   }),
@@ -124,25 +110,6 @@ const incoming = z.discriminatedUnion("type", [
     emoji: z.string().max(8).optional(),
     anonymous: z.boolean().optional(),
   }),
-  z.object({
-    type: z.literal("auth.signup"),
-    name: z.string().min(3).max(24),
-    password: z.string().min(8).max(200),
-    emoji: z.string().max(8).optional(),
-  }),
-  z.object({
-    type: z.literal("auth.login"),
-    name: z.string().min(3).max(24),
-    password: z.string().min(8).max(200),
-  }),
-  z.object({ type: z.literal("auth.attach"), token: z.string().min(8).max(256) }),
-  z.object({ type: z.literal("auth.logout") }),
-  z.object({
-    type: z.literal("auth.profile"),
-    name: z.string().min(3).max(24).optional(),
-    emoji: z.string().max(8).optional(),
-    password: z.string().min(8).max(200).optional(),
-  }),
   z.object({ type: z.literal("favorite.add"), song: favoriteAddSongSchema }),
   z.object({
     type: z.literal("favorite.remove"),
@@ -156,26 +123,17 @@ const incoming = z.discriminatedUnion("type", [
 interface ConnState {
   ws: WebSocket;
   room: Room;
-  ip: string;
   userId: string | null;
-  account: Account | null;
-  sessionToken: string | null;
   ownerKey: OwnerKey | null;
 }
 
 /** Connections indexed by ownerKey so favorite mutations can broadcast to
- *  every tab/device of the same user. */
+ *  every tab of the same userId. */
 const connectionsByOwner = new Map<OwnerKey, Set<ConnState>>();
 
 function send(ws: WebSocket, payload: unknown) {
   if (ws.readyState !== ws.OPEN) return;
   ws.send(JSON.stringify(payload));
-}
-
-function computeOwnerKey(s: ConnState): OwnerKey | null {
-  if (s.account) return `acct:${s.account.accountId}`;
-  if (s.userId) return `anon:${s.userId}`;
-  return null;
 }
 
 function reindexOwner(s: ConnState, prev: OwnerKey | null) {
@@ -203,42 +161,13 @@ function sendFavoritesSnapshot(s: ConnState) {
 }
 
 /** Broadcast a fresh `favorites` snapshot to every connection that shares
- *  the given owner key. The caller has already mutated the DB. */
+ *  the given owner key. */
 export function broadcastFavorites(ownerKey: OwnerKey) {
   const set = connectionsByOwner.get(ownerKey);
   if (!set) return;
   const list = listFavorites(ownerKey);
   for (const conn of set) {
     send(conn.ws, { type: "favorites", favorites: list });
-  }
-}
-
-/** Update the connection's owner key (e.g. on login/logout/attach) and
- *  re-emit a favorites snapshot. */
-function setOwner(s: ConnState) {
-  const prev = s.ownerKey;
-  s.ownerKey = computeOwnerKey(s);
-  reindexOwner(s, prev);
-  sendFavoritesSnapshot(s);
-}
-
-/** Apply identity (account profile if logged in, else hello display) to
- *  the room presence row. */
-function applyPresence(
-  s: ConnState,
-  hello?: { name: string; emoji: string; anonymous: boolean },
-) {
-  if (!s.userId) return;
-  if (s.account) {
-    setUser(s.room, s.userId, {
-      name: s.account.name,
-      emoji: s.account.emoji,
-      anonymous: false,
-    });
-    return;
-  }
-  if (hello) {
-    setUser(s.room, s.userId, hello);
   }
 }
 
@@ -256,11 +185,7 @@ export function attachWs(server: import("node:http").Server) {
       socket.destroy();
       return;
     }
-    const ip =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
-    wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, slug, ip));
+    wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, slug));
   });
 }
 
@@ -274,15 +199,12 @@ function dropConnection(state: ConnState) {
   }
 }
 
-function onConnection(ws: WebSocket, slug: string, ip: string) {
+function onConnection(ws: WebSocket, slug: string) {
   const room = getOrCreateRoom(slug);
   const state: ConnState = {
     ws,
     room,
-    ip,
     userId: null,
-    account: null,
-    sessionToken: null,
     ownerKey: null,
   };
 
@@ -306,8 +228,6 @@ function onConnection(ws: WebSocket, slug: string, ip: string) {
       rawType = obj?.type;
       parsed = incoming.parse(obj);
     } catch (e) {
-      // Make the error message a bit more useful for the favorites strict
-      // schema so clients can tell when they sent unknown fields.
       const isFav = rawType === "favorite.add" || rawType === "favorite.remove";
       const msg =
         e instanceof z.ZodError && isFav && e.errors.some((x) => x.code === "unrecognized_keys")
@@ -336,32 +256,18 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
 
   if (parsed.type === "hello") {
     s.userId = parsed.userId;
-    if (parsed.token) {
-      const attached = attachSession({ token: parsed.token, userId: parsed.userId });
-      if (attached) {
-        s.account = attached.account;
-        s.sessionToken = attached.sessionToken;
-      }
-    }
-    const helloDisplay = parsed.anonymous
+    const display = parsed.anonymous
       ? { name: "匿名", emoji: "👤", anonymous: true }
       : {
           name: clampString(parsed.name, 16) || "未命名",
           emoji: parsed.emoji || "🎤",
           anonymous: false,
         };
-    applyPresence(s, helloDisplay);
-    setOwner(s);
-    if (s.account) {
-      send(ws, {
-        type: "auth.ok",
-        account: {
-          id: s.account.accountId,
-          name: s.account.name,
-          emoji: s.account.emoji,
-        },
-      });
-    }
+    setUser(s.room, s.userId, display);
+    const prev = s.ownerKey;
+    s.ownerKey = `anon:${s.userId}`;
+    reindexOwner(s, prev);
+    sendFavoritesSnapshot(s);
     return;
   }
 
@@ -384,30 +290,16 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         send(ws, { type: "error", error: "supply either song or ref, not both" });
         return;
       }
-      const fallbackAddedBy = s.account
-        ? {
-            id: s.account.accountId,
-            name: s.account.name,
-            emoji: s.account.emoji,
-            anonymous: false,
-          }
-        : {
-            id: s.userId,
-            name: s.room.state.users[s.userId]?.name ?? "未命名",
-            emoji: s.room.state.users[s.userId]?.emoji ?? "🎤",
-            anonymous: s.room.state.users[s.userId]?.anonymous ?? false,
-          };
+      const presence = s.room.state.users[s.userId];
+      const fallbackAddedBy = {
+        id: s.userId,
+        name: presence?.name ?? "未命名",
+        emoji: presence?.emoji ?? "🎤",
+        anonymous: presence?.anonymous ?? false,
+      };
       let song: Omit<Song, "id" | "addedAt"> | null = null;
       if (parsed.song) {
         const sng = parsed.song;
-        const addedBy = s.account
-          ? fallbackAddedBy
-          : {
-              id: sng.addedBy.id ?? s.userId,
-              name: clampString(sng.addedBy.name, 32),
-              emoji: sng.addedBy.emoji,
-              anonymous: sng.addedBy.anonymous,
-            };
         song = {
           source: sng.source,
           videoId: sng.videoId,
@@ -415,12 +307,16 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
           title: clampString(sng.title, 300) || `${sng.source} ${sng.videoId}`,
           thumb: sng.thumb ?? null,
           duration: sng.duration,
-          addedBy,
+          addedBy: {
+            id: sng.addedBy.id ?? s.userId,
+            name: clampString(sng.addedBy.name, 32),
+            emoji: sng.addedBy.emoji,
+            anonymous: sng.addedBy.anonymous,
+          },
         };
       } else if (parsed.ref) {
         const ref = parsed.ref;
         const page = ref.source === "bili" ? ref.page ?? 1 : undefined;
-        // Try cached favorite metadata first to skip the network parse.
         const ownerKey = s.ownerKey;
         const cached = ownerKey
           ? findFavorite(ownerKey, ref.source, ref.videoId, ref.source === "bili" ? page ?? 0 : 0)
@@ -501,10 +397,6 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
     }
 
     case "profile.update": {
-      if (s.account) {
-        send(ws, { type: "error", error: "use auth.profile when logged in" });
-        return;
-      }
       const cur = s.room.state.users[s.userId] ?? {
         name: "未命名",
         emoji: "🎤",
@@ -521,125 +413,6 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         next.emoji = "👤";
       }
       setUser(s.room, s.userId, next);
-      return;
-    }
-
-    case "auth.signup": {
-      if (
-        !authIpLimiter.allow(`ip:${s.ip}`) ||
-        !authNameLimiter.allow(`name:${parsed.name.toLowerCase()}`)
-      ) {
-        send(ws, { type: "error", error: "rate limited (auth)" });
-        return;
-      }
-      try {
-        const ok = await authSignup({
-          name: parsed.name,
-          password: parsed.password,
-          emoji: parsed.emoji,
-          userId: s.userId,
-        });
-        s.account = getAccountById(ok.account.id) ?? null;
-        s.sessionToken = ok.token;
-        applyPresence(s);
-        setOwner(s);
-        send(ws, { type: "auth.ok", token: ok.token, account: ok.account });
-      } catch (e) {
-        send(ws, {
-          type: "error",
-          error: e instanceof AuthError ? e.message : "signup failed",
-        });
-      }
-      return;
-    }
-
-    case "auth.login": {
-      if (
-        !authIpLimiter.allow(`ip:${s.ip}`) ||
-        !authNameLimiter.allow(`name:${parsed.name.toLowerCase()}`)
-      ) {
-        send(ws, { type: "error", error: "rate limited (auth)" });
-        return;
-      }
-      try {
-        const ok = await authLogin({
-          name: parsed.name,
-          password: parsed.password,
-          userId: s.userId,
-        });
-        s.account = getAccountById(ok.account.id) ?? null;
-        s.sessionToken = ok.token;
-        applyPresence(s);
-        setOwner(s);
-        send(ws, { type: "auth.ok", token: ok.token, account: ok.account });
-      } catch (e) {
-        send(ws, {
-          type: "error",
-          error: e instanceof AuthError ? e.message : "login failed",
-        });
-      }
-      return;
-    }
-
-    case "auth.attach": {
-      const result = attachSession({ token: parsed.token, userId: s.userId });
-      if (!result) {
-        send(ws, { type: "error", error: "invalid session" });
-        return;
-      }
-      s.account = result.account;
-      s.sessionToken = result.sessionToken;
-      applyPresence(s);
-      setOwner(s);
-      send(ws, {
-        type: "auth.ok",
-        account: {
-          id: result.account.accountId,
-          name: result.account.name,
-          emoji: result.account.emoji,
-        },
-      });
-      return;
-    }
-
-    case "auth.logout": {
-      if (s.sessionToken) authLogout(s.sessionToken);
-      s.account = null;
-      s.sessionToken = null;
-      setUser(s.room, s.userId, {
-        name: "未命名",
-        emoji: "🎤",
-        anonymous: false,
-      });
-      setOwner(s);
-      send(ws, { type: "auth.ok" });
-      return;
-    }
-
-    case "auth.profile": {
-      if (!s.account) {
-        send(ws, { type: "error", error: "login first" });
-        return;
-      }
-      try {
-        const updated = await authUpdateProfile({
-          accountId: s.account.accountId,
-          name: parsed.name,
-          emoji: parsed.emoji,
-          password: parsed.password,
-        });
-        s.account = updated;
-        applyPresence(s);
-        send(ws, {
-          type: "auth.ok",
-          account: { id: updated.accountId, name: updated.name, emoji: updated.emoji },
-        });
-      } catch (e) {
-        send(ws, {
-          type: "error",
-          error: e instanceof AuthError ? e.message : "profile update failed",
-        });
-      }
       return;
     }
 

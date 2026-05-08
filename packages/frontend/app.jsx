@@ -1,6 +1,6 @@
 // app.jsx — main App orchestrator (English-only, fixed orbitron / cyber / comfy)
 
-const { useRoom: __useRoom, useMe: __useMe, useFavorites: __useFavorites, useAuth: __useAuth, SLUG: __SLUG } = window.KTV;
+const { useRoom: __useRoom, useMe: __useMe, useFavorites: __useFavorites, SLUG: __SLUG } = window.KTV;
 const __UI = window.KTV.UI;
 
 // ── Page-wide danmaku layer (visible when not fullscreen) ─────────
@@ -206,9 +206,7 @@ function App() {
   const [room, send] = __useRoom();
   const [me, updateMe] = __useMe();
   const [, favOps] = __useFavorites();
-  const auth = __useAuth();
   const [showCatalog, setShowCatalog] = React.useState(false);
-  const [authMode, setAuthMode] = React.useState(null); // null | "login" | "signup"
   const toggleFavorite = React.useCallback((song) => {
     if (favOps.isFavorited(song)) favOps.removeFavorite(song);
     else favOps.addFavorite(song);
@@ -269,18 +267,6 @@ function App() {
         </div>
         <div className="topbar-right">
           <RoomBadge slug={__SLUG} />
-          {auth.account ? (
-            <button className="me-chip is-account" onClick={() => auth.logout()} title="Logged in — click to log out">
-              <span className="me-emoji">{auth.account.emoji}</span>
-              <span className="me-name">{auth.account.name}</span>
-              <span className="me-tag">⏏</span>
-            </button>
-          ) : (
-            <button className="me-chip" onClick={() => setAuthMode("login")} title="登录账号 · 跨房间收藏">
-              <span className="me-emoji">↪</span>
-              <span className="me-name">LOGIN</span>
-            </button>
-          )}
           <button className="me-chip" onClick={() => setShowProfile(true)}>
             <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>
             <span className="me-name">{me.anonymous ? "Anonymous" : (me.name || "Unnamed")}</span>
@@ -393,14 +379,7 @@ function App() {
       <__UI.CatalogModal
         open={showCatalog}
         onClose={() => setShowCatalog(false)}
-        account={auth.account}
         onAddRef={(ref) => send({ type: "queue.add", ref })}
-      />
-      <__UI.AuthModal
-        open={!!authMode}
-        mode={authMode || "login"}
-        onModeChange={(m) => setAuthMode(m)}
-        onClose={() => setAuthMode(null)}
       />
     </div>
   );

@@ -11,14 +11,7 @@ const dbPath = join(tmp, "test.db");
 process.env.DB_PATH = dbPath;
 
 const dbModule = await import("./db.js");
-const {
-  initDb,
-  insertAccount,
-  addFavorite,
-  listFavorites,
-  removeFavorite,
-  mergeAnonFavoritesIntoAccount,
-} = dbModule;
+const { initDb, addFavorite, listFavorites, removeFavorite } = dbModule;
 
 beforeAll(() => {
   initDb();
@@ -69,53 +62,12 @@ describe("favorites dedupe", () => {
     const list = listFavorites(owner3);
     expect(list.map((f) => f.videoId)).toEqual(["y2"]);
   });
-});
 
-describe("anon → account merge", () => {
-  it("moves rows under the new owner key and deletes the anon ones", () => {
-    const accountId = "acct_merge_a";
-    const userId = "u_merge_a";
-    insertAccount({
-      accountId,
-      name: "merge_a",
-      emoji: "🎤",
-      passwordHash: "x",
-      createdAt: 1,
-    });
-    const anon = `anon:${userId}` as const;
-    const acct = `acct:${accountId}` as const;
-    addFavorite(anon, { source: "bili", videoId: "BV_m1", page: 0, title: "m1", thumb: null, addedAt: 10 });
-    addFavorite(anon, { source: "yt", videoId: "ym2", page: 0, title: "m2", thumb: null, addedAt: 11 });
-    expect(listFavorites(anon)).toHaveLength(2);
-    expect(listFavorites(acct)).toHaveLength(0);
-
-    mergeAnonFavoritesIntoAccount(userId, accountId, 999);
-
-    expect(listFavorites(anon)).toHaveLength(0);
-    const merged = listFavorites(acct);
-    expect(merged.map((f) => f.videoId).sort()).toEqual(["BV_m1", "ym2"]);
-    expect(merged.find((f) => f.videoId === "BV_m1")!.addedAt).toBe(10);
-  });
-
-  it("on conflict the account row wins (original added_at preserved)", () => {
-    const accountId = "acct_merge_b";
-    const userId = "u_merge_b";
-    insertAccount({
-      accountId,
-      name: "merge_b",
-      emoji: "🎤",
-      passwordHash: "x",
-      createdAt: 1,
-    });
-    const anon = `anon:${userId}` as const;
-    const acct = `acct:${accountId}` as const;
-    addFavorite(acct, { source: "bili", videoId: "BV_dup", page: 0, title: "ACCT", thumb: null, addedAt: 100 });
-    addFavorite(anon, { source: "bili", videoId: "BV_dup", page: 0, title: "ANON", thumb: null, addedAt: 200 });
-    mergeAnonFavoritesIntoAccount(userId, accountId, 999);
-    const list = listFavorites(acct);
-    expect(list).toHaveLength(1);
-    expect(list[0]!.title).toBe("ACCT");
-    expect(list[0]!.addedAt).toBe(100);
-    expect(listFavorites(anon)).toHaveLength(0);
+  it("favorites are scoped per owner_key (no cross-user leakage)", () => {
+    const a = "anon:u_iso_a" as const;
+    const b = "anon:u_iso_b" as const;
+    addFavorite(a, { source: "yt", videoId: "iso", page: 0, title: "A", thumb: null, addedAt: 1 });
+    expect(listFavorites(a)).toHaveLength(1);
+    expect(listFavorites(b)).toHaveLength(0);
   });
 });

@@ -2,17 +2,17 @@
 
 ### Requirement: Per-user favorites list, scoped by owner key
 
-The backend SHALL maintain a favorites set per **owner key**. The owner key SHALL be `acct:<account_id>` when the connection has an authenticated session attached, and `anon:<userId>` otherwise (where `userId` is the stable `localStorage` UUID the client already sends in `hello`). Favorites SHALL NOT be embedded in `RoomState` and SHALL NOT be broadcast to peers in a room.
+The backend SHALL maintain a favorites set per **owner key**. The owner key SHALL always be `anon:<userId>`, where `userId` is the stable `localStorage` UUID the client already sends in `hello`. There is no account layer; the owner key has only this one form. Favorites SHALL NOT be embedded in `RoomState` and SHALL NOT be broadcast to peers in a room.
 
-#### Scenario: Anonymous user stars a song from one room and sees it in another
+#### Scenario: User stars a song from one room and sees it in another
 
-- **WHEN** an anonymous user (no session) with `userId="u_abc"` connects in room `aaa` and sends `{type:"favorite.add", song:{source:"bili", videoId:"BV1y2q6YWEGp"}}`, then later disconnects and connects to room `bbb` with the same `userId`
+- **WHEN** a user with `userId="u_abc"` connects in room `aaa` and sends `{type:"favorite.add", song:{source:"bili", videoId:"BV1y2q6YWEGp"}}`, then later disconnects and connects to room `bbb` with the same `userId`
 - **THEN** on the connection to `bbb` the server SHALL include `BV1y2q6YWEGp` in the `favorites` snapshot delivered to that user, and SHALL NOT include it in any state snapshot delivered to other users in either room
 
-#### Scenario: Logged-in user sees the same list across devices
+#### Scenario: Different userId is a different list
 
-- **WHEN** the same account is logged in on two devices and one device sends `favorite.add` for a new song
-- **THEN** the server SHALL persist the favorite under `acct:<account_id>` and the other device's next `favorites` snapshot (on reconnect or live broadcast) SHALL include it
+- **WHEN** two clients in the same room send `hello` with different `userId` values
+- **THEN** each client's `favorites` snapshot SHALL contain only the rows whose `owner_key` matches `anon:<their userId>`; one client's favorites SHALL never appear in the other's snapshot
 
 ### Requirement: Favorites identity key is `(source, videoId, page)`
 
@@ -62,7 +62,7 @@ The backend SHALL accept a queue add of the form `{type:"queue.add", ref:{source
 
 ### Requirement: Favorites snapshot on connect
 
-On every successful `hello` (and on every successful `auth.login` / `auth.logout`), the server SHALL send the connecting client a `{type:"favorites", favorites:Favorite[]}` message reflecting the favorites for the resulting owner key, ordered by `added_at` descending.
+On every successful `hello`, the server SHALL send the connecting client a `{type:"favorites", favorites:Favorite[]}` message reflecting the favorites for the resulting owner key, ordered by `added_at` descending.
 
 #### Scenario: Reconnect delivers favorites alongside room state
 
@@ -83,7 +83,7 @@ The catalog modal SHALL match a query string against each favorite's title using
 - **WHEN** a favorite has title `小镇姑娘` and the search box contains `xiaozhen`
 - **THEN** the row SHALL be visible in the filtered list
 
-#### Scenario: User types "Rick" and matches an English title
+#### Scenario: User types "gonna" and matches an English title
 
 - **WHEN** a favorite has title `Never Gonna Give You Up` and the search box contains `gonna`
 - **THEN** the row SHALL be visible (case-insensitive substring match on the original title)

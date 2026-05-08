@@ -7,6 +7,7 @@ const ALLOWED_FAVORITE_KEYS = [
   "title",
   "thumb",
   "duration",
+  "addedBy",
   "addedAt",
 ];
 
@@ -33,6 +34,7 @@ describe("Favorite shape stays canonical", () => {
       title: "试听",
       thumb: "https://i0.hdslb.com/bfs/archive/abc.jpg",
       duration: 234,
+      addedBy: { id: "u_x", name: "memo", emoji: "🎤" },
       addedAt: 1700000000000,
     };
     for (const k of Object.keys(fav)) {

@@ -6,21 +6,23 @@ The backend SHALL create the following SQLite table on boot (idempotent `CREATE 
 
 ```
 CREATE TABLE favorites (
-  owner_key    TEXT NOT NULL,                -- "anon:<userId>"
-  source       TEXT NOT NULL,
-  video_id     TEXT NOT NULL,
-  page         INTEGER NOT NULL DEFAULT 0,
-  title        TEXT NOT NULL,
-  thumb        TEXT,
-  duration     INTEGER,
-  added_at     INTEGER NOT NULL,
-  PRIMARY KEY (owner_key, source, video_id, page)
+  source         TEXT NOT NULL,
+  video_id       TEXT NOT NULL,
+  page           INTEGER NOT NULL DEFAULT 0,
+  title          TEXT NOT NULL,
+  thumb          TEXT,
+  duration       INTEGER,
+  added_by_id    TEXT,
+  added_by_name  TEXT,
+  added_by_emoji TEXT,
+  added_at       INTEGER NOT NULL,
+  PRIMARY KEY (source, video_id, page)
 );
 
-CREATE INDEX IF NOT EXISTS idx_favorites_owner_added ON favorites(owner_key, added_at DESC);
+CREATE INDEX IF NOT EXISTS idx_favorites_added ON favorites(added_at DESC);
 ```
 
-WAL journal mode (already enabled for `rooms`) SHALL apply to the whole database.
+The table is GLOBAL — there is no `owner_key` column and no per-user scoping. WAL journal mode (already enabled for `rooms`) SHALL apply to the whole database.
 
 #### Scenario: Fresh install creates the favorites table
 
@@ -34,16 +36,16 @@ WAL journal mode (already enabled for `rooms`) SHALL apply to the whole database
 
 ### Requirement: Favorites are not part of room state
 
-Favorites SHALL be persisted in the `favorites` table only and SHALL NOT appear in the `rooms.state` JSON. Restoring rooms on boot SHALL NOT touch the `favorites` table, and GC of an idle room SHALL NOT delete any favorite rows.
+Favorites SHALL be persisted in the `favorites` table only and SHALL NOT appear in the `rooms.state` JSON. Restoring rooms on boot SHALL NOT touch the `favorites` table, and GC of an idle room SHALL NOT delete any favorite rows. Because favorites are global, they outlive every room.
 
 #### Scenario: Idle-room GC leaves favorites intact
 
-- **WHEN** the GC job evicts and `DELETE FROM rooms WHERE slug = ?` for an idle room whose participants had personal favorites
-- **THEN** every row in `favorites` for those users' `owner_key`s SHALL remain present and queryable
+- **WHEN** the GC job evicts a room and runs `DELETE FROM rooms WHERE slug = ?`
+- **THEN** every row in `favorites` SHALL remain present and queryable, regardless of which user originally starred them
 
 ### Requirement: Stored fields remain canonical
 
-Persistence layers SHALL only ever store `source`, `videoId`, `page`, `title`, `thumb`, `duration`, `added_at`, `addedBy` (for room `Song`s) and never the original raw URL or any non-allowlisted query parameter. Code paths that read user-supplied URLs (parser, queue add) SHALL canonicalize before any write.
+Persistence layers SHALL only ever store `source`, `videoId`, `page`, `title`, `thumb`, `duration`, `added_by_*`, `added_at` (for favorites) and `addedBy` (for room `Song`s) — never the original raw URL or any non-allowlisted query parameter. Code paths that read user-supplied URLs (parser, queue add) SHALL canonicalize before any write.
 
 #### Scenario: Bilibili share URL with tracking params is queued
 

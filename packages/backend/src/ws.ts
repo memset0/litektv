@@ -27,7 +27,7 @@ import {
   trackPrev,
   type Room,
 } from "./rooms.js";
-import type { Favorite, OwnerKey, Song } from "./types.js";
+import type { Favorite, Song } from "./types.js";
 import { clampString, now, uuid } from "./util.js";
 
 const queueAddLimiter = new RateLimiter(config.rateLimits["queue.add"].perMinute);
@@ -124,49 +124,27 @@ interface ConnState {
   ws: WebSocket;
   room: Room;
   userId: string | null;
-  ownerKey: OwnerKey | null;
 }
 
-/** Connections indexed by ownerKey so favorite mutations can broadcast to
- *  every tab of the same userId. */
-const connectionsByOwner = new Map<OwnerKey, Set<ConnState>>();
+/** Every active WebSocket. Favorites are global (site-wide), so any
+ *  favorite mutation fans out to every connected client regardless of room. */
+const allConnections = new Set<ConnState>();
 
 function send(ws: WebSocket, payload: unknown) {
   if (ws.readyState !== ws.OPEN) return;
   ws.send(JSON.stringify(payload));
 }
 
-function reindexOwner(s: ConnState, prev: OwnerKey | null) {
-  if (prev && prev !== s.ownerKey) {
-    const set = connectionsByOwner.get(prev);
-    if (set) {
-      set.delete(s);
-      if (set.size === 0) connectionsByOwner.delete(prev);
-    }
-  }
-  if (s.ownerKey) {
-    let set = connectionsByOwner.get(s.ownerKey);
-    if (!set) {
-      set = new Set();
-      connectionsByOwner.set(s.ownerKey, set);
-    }
-    set.add(s);
-  }
-}
-
 function sendFavoritesSnapshot(s: ConnState) {
-  if (!s.ownerKey) return;
-  const list = listFavorites(s.ownerKey);
+  const list = listFavorites();
   send(s.ws, { type: "favorites", favorites: list });
 }
 
-/** Broadcast a fresh `favorites` snapshot to every connection that shares
- *  the given owner key. */
-export function broadcastFavorites(ownerKey: OwnerKey) {
-  const set = connectionsByOwner.get(ownerKey);
-  if (!set) return;
-  const list = listFavorites(ownerKey);
-  for (const conn of set) {
+/** Broadcast a fresh `favorites` snapshot to every connected client.
+ *  Favorites are site-wide, so everyone sees the same list. */
+export function broadcastFavorites() {
+  const list = listFavorites();
+  for (const conn of allConnections) {
     send(conn.ws, { type: "favorites", favorites: list });
   }
 }
@@ -190,13 +168,7 @@ export function attachWs(server: import("node:http").Server) {
 }
 
 function dropConnection(state: ConnState) {
-  if (state.ownerKey) {
-    const set = connectionsByOwner.get(state.ownerKey);
-    if (set) {
-      set.delete(state);
-      if (set.size === 0) connectionsByOwner.delete(state.ownerKey);
-    }
-  }
+  allConnections.delete(state);
 }
 
 function onConnection(ws: WebSocket, slug: string) {
@@ -205,8 +177,8 @@ function onConnection(ws: WebSocket, slug: string) {
     ws,
     room,
     userId: null,
-    ownerKey: null,
   };
+  allConnections.add(state);
 
   const sendState = (st: import("./types.js").RoomState) => {
     if (ws.readyState === ws.OPEN) {
@@ -264,9 +236,6 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
           anonymous: false,
         };
     setUser(s.room, s.userId, display);
-    const prev = s.ownerKey;
-    s.ownerKey = `anon:${s.userId}`;
-    reindexOwner(s, prev);
     sendFavoritesSnapshot(s);
     return;
   }
@@ -317,10 +286,11 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
       } else if (parsed.ref) {
         const ref = parsed.ref;
         const page = ref.source === "bili" ? ref.page ?? 1 : undefined;
-        const ownerKey = s.ownerKey;
-        const cached = ownerKey
-          ? findFavorite(ownerKey, ref.source, ref.videoId, ref.source === "bili" ? page ?? 0 : 0)
-          : null;
+        const cached = findFavorite(
+          ref.source,
+          ref.videoId,
+          ref.source === "bili" ? page ?? 0 : 0,
+        );
         let title: string | undefined = cached?.title;
         let thumb: string | null | undefined = cached?.thumb ?? null;
         let duration: number | undefined = cached?.duration;
@@ -417,11 +387,7 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
     }
 
     case "favorite.add": {
-      if (!s.ownerKey) {
-        send(ws, { type: "error", error: "hello first" });
-        return;
-      }
-      if (!favoriteLimiter.allow(s.ownerKey)) {
+      if (!favoriteLimiter.allow(s.userId)) {
         send(ws, { type: "error", error: "rate limited (favorite)" });
         return;
       }
@@ -444,6 +410,15 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
           title = `${fav.source === "yt" ? "YouTube" : "Bilibili"} ${fav.videoId}`;
         }
       }
+      // Stamp the favoriter — server-side from presence so a client can't
+      // claim someone else's identity. First-starrer wins (PK conflict
+      // does nothing).
+      const presence = s.room.state.users[s.userId];
+      const addedBy = {
+        id: s.userId,
+        name: presence?.name ?? "未命名",
+        emoji: presence?.emoji ?? "🎤",
+      };
       const row: Favorite = {
         source: fav.source,
         videoId: fav.videoId,
@@ -451,25 +426,22 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         title,
         thumb: thumb ?? null,
         duration,
+        addedBy,
         addedAt: now(),
       };
-      addFavorite(s.ownerKey, row);
-      broadcastFavorites(s.ownerKey);
+      addFavorite(row);
+      broadcastFavorites();
       return;
     }
 
     case "favorite.remove": {
-      if (!s.ownerKey) {
-        send(ws, { type: "error", error: "hello first" });
-        return;
-      }
-      if (!favoriteLimiter.allow(s.ownerKey)) {
+      if (!favoriteLimiter.allow(s.userId)) {
         send(ws, { type: "error", error: "rate limited (favorite)" });
         return;
       }
       const page = parsed.source === "bili" ? parsed.page ?? 1 : 0;
-      removeFavorite(s.ownerKey, parsed.source, parsed.videoId, page);
-      broadcastFavorites(s.ownerKey);
+      removeFavorite(parsed.source, parsed.videoId, page);
+      broadcastFavorites();
       return;
     }
 

@@ -53,7 +53,13 @@ export interface ParsedSongMeta {
   duration?: number;
 }
 
-// ── Favorites ──────────────────────────────────────────────────────────────
+// ── Favorites (GLOBAL — site-wide list, not per-user) ─────────────────────
+
+export interface FavoriteAddedBy {
+  id?: string;
+  name: string;
+  emoji: string;
+}
 
 export interface Favorite {
   source: Source;
@@ -62,12 +68,10 @@ export interface Favorite {
   title: string;
   thumb?: string | null;
   duration?: number;
+  /** Who first starred this song (set on insert; not overwritten). */
+  addedBy: FavoriteAddedBy | null;
   addedAt: number;
 }
-
-/** Per-userId owner key for the favorites table. Identity comes from the
- *  client's stable localStorage UUID — there is no account layer. */
-export type OwnerKey = `anon:${string}`;
 
 /** Canonical reference to a video, sufficient to re-fetch metadata. */
 export interface SongRef {

@@ -11,7 +11,8 @@ const dbPath = join(tmp, "test.db");
 process.env.DB_PATH = dbPath;
 
 const dbModule = await import("./db.js");
-const { initDb, addFavorite, listFavorites, removeFavorite } = dbModule;
+const { initDb, addFavorite, listFavorites, removeFavorite, findFavorite } =
+  dbModule;
 
 beforeAll(() => {
   initDb();
@@ -21,53 +22,61 @@ afterAll(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("favorites dedupe", () => {
-  const owner = "anon:u_dedupe" as const;
+const ALICE = { id: "u_alice", name: "Alice", emoji: "🎤" };
+const BOB = { id: "u_bob", name: "Bob", emoji: "👻" };
 
-  it("adding the same song twice keeps one row and preserves added_at", () => {
+describe("favorites are global (site-wide)", () => {
+  it("adding the same song twice keeps one row and preserves the first starrer", () => {
     const fav = {
       source: "bili" as const,
       videoId: "BV_dedupe_1",
       page: 0,
-      title: "T",
+      title: "Original",
       thumb: null,
       duration: 100,
+      addedBy: ALICE,
       addedAt: 1_700_000_000_000,
     };
-    const r1 = addFavorite(owner, fav);
-    const r2 = addFavorite(owner, { ...fav, addedAt: 1_999_999_999_999, title: "different" });
+    const r1 = addFavorite(fav);
+    const r2 = addFavorite({
+      ...fav,
+      title: "Other",
+      addedBy: BOB,
+      addedAt: 1_999_999_999_999,
+    });
     expect(r1.inserted).toBe(true);
     expect(r2.inserted).toBe(false);
-    const list = listFavorites(owner);
-    expect(list).toHaveLength(1);
-    expect(list[0]!.addedAt).toBe(1_700_000_000_000);
-    expect(list[0]!.title).toBe("T");
+    const list = listFavorites();
+    const row = list.find((f) => f.videoId === "BV_dedupe_1")!;
+    expect(row).toBeTruthy();
+    expect(row.addedAt).toBe(1_700_000_000_000);
+    expect(row.title).toBe("Original");
+    expect(row.addedBy?.name).toBe("Alice");
   });
 
-  it("Bilibili p=2 and p=3 are different favorites", () => {
-    const owner2 = "anon:u_pages" as const;
-    addFavorite(owner2, { source: "bili", videoId: "BV_p", page: 2, title: "P2", thumb: null, addedAt: 1, duration: undefined });
-    addFavorite(owner2, { source: "bili", videoId: "BV_p", page: 3, title: "P3", thumb: null, addedAt: 2, duration: undefined });
-    const list = listFavorites(owner2);
-    expect(list).toHaveLength(2);
-    expect(new Set(list.map((f) => f.page))).toEqual(new Set([2, 3]));
+  it("Bilibili p=2 and p=3 are separate favorites", () => {
+    addFavorite({ source: "bili", videoId: "BV_p", page: 2, title: "P2", thumb: null, addedBy: ALICE, addedAt: 1, duration: undefined });
+    addFavorite({ source: "bili", videoId: "BV_p", page: 3, title: "P3", thumb: null, addedBy: BOB, addedAt: 2, duration: undefined });
+    const all = listFavorites();
+    const matching = all.filter((f) => f.videoId === "BV_p");
+    expect(matching).toHaveLength(2);
+    expect(new Set(matching.map((f) => f.page))).toEqual(new Set([2, 3]));
   });
 
-  it("remove deletes the matching row only", () => {
-    const owner3 = "anon:u_remove" as const;
-    addFavorite(owner3, { source: "yt", videoId: "y1", page: 0, title: "y1", thumb: null, addedAt: 1 });
-    addFavorite(owner3, { source: "yt", videoId: "y2", page: 0, title: "y2", thumb: null, addedAt: 2 });
-    const r = removeFavorite(owner3, "yt", "y1", 0);
+  it("favorites list is shared across users; both starrers see all entries", () => {
+    addFavorite({ source: "yt", videoId: "shared_1", page: 0, title: "shared by alice", thumb: null, addedBy: ALICE, addedAt: 10 });
+    addFavorite({ source: "yt", videoId: "shared_2", page: 0, title: "shared by bob", thumb: null, addedBy: BOB, addedAt: 20 });
+    // listFavorites() takes no owner key — there's only one global list.
+    const list = listFavorites();
+    expect(list.some((f) => f.videoId === "shared_1")).toBe(true);
+    expect(list.some((f) => f.videoId === "shared_2")).toBe(true);
+  });
+
+  it("any user's remove takes effect for everyone (favorites are public)", () => {
+    addFavorite({ source: "yt", videoId: "to_remove", page: 0, title: "x", thumb: null, addedBy: ALICE, addedAt: 1 });
+    expect(findFavorite("yt", "to_remove", 0)).not.toBeNull();
+    const r = removeFavorite("yt", "to_remove", 0);
     expect(r.removed).toBe(true);
-    const list = listFavorites(owner3);
-    expect(list.map((f) => f.videoId)).toEqual(["y2"]);
-  });
-
-  it("favorites are scoped per owner_key (no cross-user leakage)", () => {
-    const a = "anon:u_iso_a" as const;
-    const b = "anon:u_iso_b" as const;
-    addFavorite(a, { source: "yt", videoId: "iso", page: 0, title: "A", thumb: null, addedAt: 1 });
-    expect(listFavorites(a)).toHaveLength(1);
-    expect(listFavorites(b)).toHaveLength(0);
+    expect(findFavorite("yt", "to_remove", 0)).toBeNull();
   });
 });

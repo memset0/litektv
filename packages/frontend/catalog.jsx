@@ -65,6 +65,15 @@
                       <div className="cat-sub">
                         <span className="src-tag" data-src={f.source}>{f.source === "yt" ? "YT" : "Bili"}</span>
                         {f.page && f.page > 1 ? <span className="cat-p">P{f.page}</span> : null}
+                        {f.addedBy ? (
+                          <>
+                            <span className="cat-by">
+                              <span className="q-emoji">{f.addedBy.emoji}</span>
+                              <span>{f.addedBy.name}</span>
+                            </span>
+                            <span className="q-dot">·</span>
+                          </>
+                        ) : null}
                         <span className="cat-time">{__UI.ago(f.addedAt)}</span>
                       </div>
                     </div>

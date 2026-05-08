@@ -288,6 +288,8 @@ body[data-font="display"] {
   border-radius: 4px;
   font-size: 10px;
 }
+.cat-by { display: inline-flex; align-items: center; gap: 4px; }
+.cat-by .q-emoji { font-size: 11px; }
 .cat-actions { display: flex; align-items: center; gap: 6px; }
 .cat-add {
   font-family: var(--font-display);

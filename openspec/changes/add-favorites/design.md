@@ -13,7 +13,9 @@ Stakeholders are end-users (singers wanting a personal song list) and us as oper
 
 **Goals:**
 
-- Per-user favorites list scoped to the `localStorage` `userId`, identical across every room that user joins from the same browser.
+- A single **site-wide** favorites list shared by every visitor. One global pool of starred songs persisted in SQLite.
+- Each favorite row records the **first starrer** as `addedBy = {id, name, emoji}` so the catalog modal shows who added it. The server stamps this from presence — clients can't spoof.
+- Re-queueing from the catalog (or replaying from history) stamps the **current user** as the queue's `addedBy`, so the queue always reflects who's queueing right now, not who originally added the song.
 - Storage records contain only canonical fields: `source`, `videoId`, `page?`, plus display fields the parser produced (`title`, `thumb?`, `duration?`). Never the raw URL, never tracking params.
 - Catalog modal searchable by full pinyin, pinyin initials, and case-insensitive substring against song titles.
 - UI: side-panel action area shows `+` (add link) and 📚 (catalog) buttons in place of the current "Queue" button. The catalog modal is centered, list ordered by `added_at` DESC, Esc / backdrop click closes.
@@ -21,25 +23,31 @@ Stakeholders are end-users (singers wanting a personal song list) and us as oper
 
 **Non-Goals:**
 
-- **Any account / login / password system.** Identity is the existing `localStorage` `userId` plus the existing `name`/`emoji` profile sheet. Wiping `localStorage` loses the favorites — that's accepted.
-- Multi-device sync. Same browser → same list; different browser is a different list.
+- **Any account / login / password system.** Identity for presence/`addedBy` stays the existing `localStorage` `userId` plus the freely-set `name`/`emoji` profile.
+- Per-user or private favorites — every favorite is public. There is no scoping. Anyone can star, anyone can unstar.
 - Multi-`p` page-picker UI in the queue/favorites add flow (kept as a follow-up; backend stays compatible).
-- Per-favorite tagging, ordering, or playlists. Favorites are an unordered set keyed by `(userId, source, videoId, page)`, surfaced in `added_at DESC` order.
+- Per-favorite tagging, ordering, or playlists. Favorites are an unordered set keyed by `(source, videoId, page)`, surfaced in `added_at DESC` order.
 - Migrating already-stored room rows. Existing room JSON is left as-is; canonicalization applies on the next mutation.
 
 ## Decisions
 
-### Decision: Favorites are per-`userId`, NOT part of `RoomState`
+### Decision: Favorites are GLOBAL, NOT part of `RoomState`
 
-Favorites ride a separate persistence path (new `favorites` table) and a separate WebSocket message family (`favorite.*`). They are never embedded in the `RoomState` JSON broadcast.
+Favorites ride a separate persistence path (new `favorites` table) and a separate WebSocket message family (`favorite.*`). They are never embedded in the `RoomState` JSON broadcast. The favorites set is a single site-wide pool — every connected client sees the same list.
 
-**Why:** Embedding favorites in `RoomState` would (a) leak one user's list to every peer in the room, (b) bloat the broadcast payload, and (c) couple favorites GC to room GC, which is exactly wrong — favorites must outlive rooms.
+**Why:** Embedding favorites in `RoomState` would (a) bloat the broadcast payload, (b) couple favorites GC to room GC (favorites must outlive rooms), and (c) artificially scope a fundamentally site-wide concept to a single room.
 
-### Decision: Owner key is `anon:<userId>` (no account form)
+### Decision: One global pool, no per-user partitioning
 
-The favorites table's `owner_key` column always carries the prefix `anon:` followed by the client's `localStorage` `userId`. There is no `acct:` form, no account table, no session table, no merge logic. If a user wants to "follow them across devices" they have to manually re-star — that is the explicit product trade-off.
+The `favorites` table has no `owner_key` column. PK is `(source, video_id, page)`. First-starrer wins on conflict; subsequent stars of the same song are no-ops. Anyone may unstar.
 
-**Why:** Username/password infrastructure is operationally heavy (we have no email infra, no recovery story, and the user has explicitly said they don't want one). The existing per-browser stable userId is a reasonable identity for this scope.
+**Why:** Per the user's directive, favorites are explicitly public. Per-user lists or visibility scopes would require an identity layer the project has chosen not to build.
+
+### Decision: `addedBy` is server-stamped from presence
+
+The `addedBy` field on a favorite row is set by the server from the connection's known presence (`name` + `emoji` from the room presence map, plus the connection's `userId`). The client's `favorite.add` payload SHALL NOT carry an `addedBy` — even if it does (via `.strict()` rejecting unknown fields it can't), the server would ignore it.
+
+**Why:** Anyone could pose as anyone if the client controlled `addedBy`. Stamping it server-side is cheap and correct.
 
 ### Decision: Parser canonicalizes — `URL.searchParams` is filtered to an allowlist
 
@@ -55,20 +63,22 @@ The favorite/queue add path also gains an alternate input shape: `{ref: {source,
 
 ```sql
 CREATE TABLE favorites (
-  owner_key    TEXT NOT NULL,                -- "anon:<userId>"
-  source       TEXT NOT NULL,                -- 'yt' | 'bili'
-  video_id     TEXT NOT NULL,
-  page         INTEGER NOT NULL DEFAULT 0,   -- 0 means "no page" (yt or bili p=1)
-  title        TEXT NOT NULL,
-  thumb        TEXT,
-  duration     INTEGER,
-  added_at     INTEGER NOT NULL,
-  PRIMARY KEY (owner_key, source, video_id, page)
+  source         TEXT NOT NULL,
+  video_id       TEXT NOT NULL,
+  page           INTEGER NOT NULL DEFAULT 0,   -- 0 means "no page"
+  title          TEXT NOT NULL,
+  thumb          TEXT,
+  duration       INTEGER,
+  added_by_id    TEXT,
+  added_by_name  TEXT,
+  added_by_emoji TEXT,
+  added_at       INTEGER NOT NULL,
+  PRIMARY KEY (source, video_id, page)
 );
-CREATE INDEX idx_favorites_owner_added ON favorites(owner_key, added_at DESC);
+CREATE INDEX idx_favorites_added ON favorites(added_at DESC);
 ```
 
-`owner_key` is computed at request time from the connection's `userId` (`anon:<userId>`). `COALESCE(page,0)` lets the primary key be tight without nullable parts.
+PK is global, `addedBy` is denormalized into three columns to keep things simple, the index on `added_at DESC` is the single sort the catalog uses.
 
 ### Decision: Pinyin search runs client-side
 
@@ -89,8 +99,8 @@ Each queue/history row gets a star toggle on the right edge.
 
 ## Risks / Trade-offs
 
-- **[Risk]** User clears `localStorage` → favorites list disappears with no recovery path → **Mitigation:** none. Documented as the explicit cost of "no accounts". The list is curated convenience, not load-bearing data.
-- **[Risk]** Same person on two browsers / two devices sees two different lists → **Mitigation:** none. Out of scope per the user's directive.
+- **[Risk]** Anyone can unstar anything (favorites are public, no owner check on remove) → **Mitigation:** none. Documented as part of the "public list" model. Worst case is a friendly admin-style intervention; data loss is recoverable by re-starring.
+- **[Risk]** A noisy / abusive client could spam the global list → **Mitigation:** existing 60/min favorite rate limit per `userId`; if needed we can add a hard cap on total entries.
 - **[Risk]** Pinyin library bundle size on slow networks → **Mitigation:** keep the script tag near the end of `<head>` so it doesn't block first paint.
 - **[Risk]** Existing Bilibili rooms may have stored thumbs whose URLs include tracking-ish suffixes from the API → **Mitigation:** none needed; thumbs are display-only and from `i*.hdslb.com`, not the user's share link. We are only canonicalizing the *input* URL, not third-party-served images.
 

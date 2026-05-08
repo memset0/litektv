@@ -5,7 +5,7 @@
   "description": "Realtime room/queue/danmaku backend for litektv",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "NODE_ENV=development tsx watch --ignore '../frontend/**' src/index.ts",
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "typecheck": "tsc -p . --noEmit",
@@ -16,6 +16,9 @@
     "express": "^4.21.2",
     "ws": "^8.18.0",
     "zod": "^3.24.1"
+  },
+  "optionalDependencies": {
+    "vite": "^5.4.11"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

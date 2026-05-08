@@ -8,6 +8,10 @@ export const config = {
   roomTtlMs: Number(env.ROOM_TTL_MS ?? 24 * 60 * 60 * 1000),
   presenceOnlineMs: 60_000,
   danmakuRingSize: 50,
+  // When true, embed Vite middleware (SPA + HMR) on the same HTTP server
+  // as REST + /ws. Toggled via NODE_ENV so a misconfigured prod box never
+  // accidentally loads vite at runtime.
+  devMode: env.NODE_ENV === "development",
   rateLimits: {
     "queue.add": { perMinute: 30 },
     "danmaku": { perMinute: 60 },

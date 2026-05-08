@@ -142,13 +142,28 @@ export function broadcastFavorites() {
   }
 }
 
-export function attachWs(server: import("node:http").Server) {
+export interface AttachWsOptions {
+  /**
+   * When true, upgrade requests on paths other than `/ws` are left alone
+   * (no `socket.destroy()`) so a co-resident upgrade listener can claim
+   * them. Set this in dev mode where Vite registers its own HMR upgrade
+   * listener on the same HTTP server via `hmr.server: server`. In prod
+   * (no other listener) leave it false so unknown upgrades are cleanly
+   * rejected instead of dangling.
+   */
+  fallthroughForeignPaths?: boolean;
+}
+
+export function attachWs(
+  server: import("node:http").Server,
+  opts: AttachWsOptions = {},
+) {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req: IncomingMessage, socket, head) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname !== "/ws") {
-      socket.destroy();
+      if (!opts.fallthroughForeignPaths) socket.destroy();
       return;
     }
     const slug = url.searchParams.get("room");

@@ -44,13 +44,13 @@
 
 ## 5. Backend dev/prod mode toggle
 
-- [ ] 5.1 Add `vite` to `packages/backend/package.json` `optionalDependencies` (NOT `dependencies` — prod tarball MAY skip it). Run `pnpm install`.
-- [ ] 5.2 Add `devMode: env.NODE_ENV === "development"` to `packages/backend/src/config.ts`.
-- [ ] 5.3 In `packages/backend/src/index.ts`, restructure: keep REST router and slug catch-all in their current order; ADD a dev branch (after the catch-all) that does `await import("vite")` → `createServer({ root: path.resolve(import.meta.dirname, "../../frontend"), server: { middlewareMode: true, hmr: { server } }, appType: "spa" })` → `app.use(vite.middlewares)`. The slug catch-all in dev SHALL serve `await vite.transformIndexHtml(req.originalUrl, fs.readFileSync(indexHtmlPath, "utf-8"))` instead of `KTV.html` (read from `packages/frontend/index.html`). In prod, the slug catch-all serves `path.join(staticDir, "index.html")`.
-- [ ] 5.4 In `packages/backend/src/ws.ts` (or wherever `attachWs` lives), guard the `upgrade` listener: only call `wss.handleUpgrade` when `URL.parse(req.url).pathname === "/ws"`; otherwise `socket.destroy()` is REPLACED by allowing fall-through to other upgrade listeners (which Vite registers via `hmr.server: server`). Concretely: change the listener to short-circuit ONLY for `/ws`, return without destroying the socket otherwise.
-- [ ] 5.5 Update `packages/backend/package.json` `dev` script: `NODE_ENV=development STATIC_DIR=../frontend tsx watch src/index.ts` (note: in dev, `STATIC_DIR` is irrelevant — Vite drives — but keeping it set avoids the env-var-gating branch flipping unexpectedly).
-- [ ] 5.6 Run `pnpm --filter litektv-backend typecheck` — fix errors. Run `pnpm --filter litektv-backend build` — confirm `dist/index.js` exists and is loadable (`node -e 'require("./packages/backend/dist/index.js")'` will boot the server; `Ctrl+C`).
-- [ ] 5.7 Commit: `feat(backend): embed Vite middleware in dev, serve dist/ in prod`
+- [x] 5.1 Added `vite` to backend `optionalDependencies`. `pnpm install` resolves cleanly.
+- [x] 5.2 `config.devMode` derived from `NODE_ENV === "development"`.
+- [x] 5.3 `index.ts` rewritten with mode-aware setup. Dev path: `await import("vite")` → `createServer({ root, server: { middlewareMode, hmr: { server } }, appType: "custom" })` → `app.use(vite.middlewares)`. SPA handler is a single function that calls `vite.transformIndexHtml(req.originalUrl, ...)` in dev, or `res.sendFile(path.join(staticRoot, "index.html"))` in prod. `appType: "custom"` (not "spa") so Vite doesn't blanket-fallback dotted-asset paths to the SPA HTML; the `room-routing` rule "missing dotted asset returns 404" still holds.
+- [x] 5.4 `attachWs` now takes `{ fallthroughForeignPaths: boolean }`. In dev mode foreign upgrades are left for Vite's HMR listener; in prod they're cleanly destroyed. Verified: `/ws` upgrades still work, HMR over `/@vite/...` still fires.
+- [x] 5.5 Backend `dev` script: `NODE_ENV=development tsx watch --ignore '../frontend/**' src/index.ts`. The ignore pattern is critical: Vite's config loader writes ephemeral `vite.config.ts.timestamp-*.mjs` files into the frontend dir, and without ignoring them tsx watch enters a restart loop (unlink → restart → vite re-loads → unlink → …).
+- [x] 5.6 `pnpm --filter litektv-backend typecheck` and `pnpm --filter litektv-backend build` clean. `dist/index.js` boots successfully via `pnpm dev` and `pnpm start`.
+- [x] 5.7 Commit: `feat(backend): embed Vite middleware in dev, serve dist/ in prod`. Required `server.allowedHosts: true` in the inline Vite config so requests fronted by Caddy (`Host: ktv.dev.mem.ac`) aren't 403'd by Vite 5's default "auto" allowlist.
 
 ## 6. Wire compatibility verification (local)
 

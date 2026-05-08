@@ -8,6 +8,9 @@
 (function () {
   // Identity-only. NOT used for room state.
   const ME_KEY = "ktv:me";
+  // Long-lived account session token (separate from ME_KEY so logout/login
+  // doesn't churn the local userId). Server treats it as a bearer.
+  const SESSION_KEY = "ktv:session";
 
   // Reserved single-segment paths that must NOT be treated as a room slug
   // (kept in sync with the backend's catch-all in src/index.ts).
@@ -82,6 +85,17 @@
     return me;
   }
 
+  // ── Session token (account auth) ────────────────────────────
+  function loadSessionToken() {
+    try { return localStorage.getItem(SESSION_KEY) || null; } catch { return null; }
+  }
+  function saveSessionToken(token) {
+    try {
+      if (token) localStorage.setItem(SESSION_KEY, token);
+      else localStorage.removeItem(SESSION_KEY);
+    } catch {}
+  }
+
   // ── Connection singleton ────────────────────────────────────
   // One WebSocket per page, multiplexed across hooks via subscribers.
   function makeConnection(slug) {
@@ -92,15 +106,24 @@
     let pending = [];
     let reconnectTimer = null;
     const subs = new Set();
+    const favSubs = new Set();
+    const authSubs = new Set();
+    let favorites = [];
+    let account = null; // { id, name, emoji } or null
+    let sessionToken = loadSessionToken();
 
     function notify() { for (const fn of subs) { try { fn(state); } catch {} } }
+    function notifyFav() { for (const fn of favSubs) { try { fn(favorites); } catch {} } }
+    function notifyAuth() { for (const fn of authSubs) { try { fn({ account, sessionToken }); } catch {} } }
 
     function buildHello() {
       if (!me) return null;
       const display = me.anonymous
         ? { name: "匿名", emoji: "👤", anonymous: true }
         : { name: (me.name || "未命名").slice(0, 16), emoji: me.emoji || "🎤", anonymous: false };
-      return { type: "hello", userId: me.id, ...display };
+      const msg = { type: "hello", userId: me.id, ...display };
+      if (sessionToken) msg.token = sessionToken;
+      return msg;
     }
 
     function connect() {
@@ -125,6 +148,21 @@
         if (msg.type === "state" && msg.state) {
           state = { ...blankRoom(), ...msg.state };
           notify();
+        } else if (msg.type === "favorites" && Array.isArray(msg.favorites)) {
+          favorites = msg.favorites;
+          notifyFav();
+        } else if (msg.type === "auth.ok") {
+          if (msg.token) { sessionToken = msg.token; saveSessionToken(msg.token); }
+          account = msg.account ? { id: msg.account.id, name: msg.account.name, emoji: msg.account.emoji } : null;
+          if (!msg.token && !msg.account) {
+            // logout response — clear both
+            sessionToken = null; saveSessionToken(null); account = null;
+          }
+          notifyAuth();
+        } else if (msg.type === "error" && typeof msg.error === "string") {
+          for (const fn of authSubs) {
+            try { fn({ account, sessionToken, error: msg.error }); } catch {}
+          }
         }
       });
       ws.addEventListener("close", () => { ws = null; helloed = false; scheduleReconnect(); });
@@ -180,7 +218,22 @@
       }
     }, 25000);
 
-    return { send, setMe, subscribe, getState: () => state };
+    function subscribeFavorites(fn) {
+      favSubs.add(fn);
+      try { fn(favorites); } catch {}
+      return () => favSubs.delete(fn);
+    }
+    function subscribeAuth(fn) {
+      authSubs.add(fn);
+      try { fn({ account, sessionToken }); } catch {}
+      return () => authSubs.delete(fn);
+    }
+
+    return {
+      send, setMe, subscribe, getState: () => state,
+      subscribeFavorites, getFavorites: () => favorites,
+      subscribeAuth, getAuth: () => ({ account, sessionToken }),
+    };
   }
 
   const conn = makeConnection(SLUG);
@@ -207,13 +260,63 @@
     return [me, update];
   }
 
+  // ── Hook: favorites ─────────────────────────────────────────
+  // Returns [favorites[], { addFavorite, removeFavorite, isFavorited }].
+  function useFavorites() {
+    const [favs, setFavs] = React.useState(() => conn.getFavorites());
+    React.useEffect(() => conn.subscribeFavorites(setFavs), []);
+    const isFavorited = React.useCallback((song) => {
+      if (!song || !song.source || !song.videoId) return false;
+      const page = song.source === "bili" ? (song.page ?? 1) : 0;
+      return favs.some((f) => f.source === song.source && f.videoId === song.videoId && f.page === page);
+    }, [favs]);
+    const addFavorite = React.useCallback((song) => {
+      conn.send({
+        type: "favorite.add",
+        song: {
+          source: song.source,
+          videoId: song.videoId,
+          page: song.source === "bili" ? (song.page ?? 1) : undefined,
+          title: song.title,
+          thumb: song.thumb ?? null,
+          duration: song.duration,
+        },
+      });
+    }, []);
+    const removeFavorite = React.useCallback((song) => {
+      conn.send({
+        type: "favorite.remove",
+        source: song.source,
+        videoId: song.videoId,
+        page: song.source === "bili" ? (song.page ?? 1) : undefined,
+      });
+    }, []);
+    return [favs, { addFavorite, removeFavorite, isFavorited }];
+  }
+
+  // ── Hook: auth ──────────────────────────────────────────────
+  function useAuth() {
+    const [auth, setAuth] = React.useState(() => conn.getAuth());
+    const [error, setError] = React.useState(null);
+    React.useEffect(() => conn.subscribeAuth((s) => {
+      setAuth({ account: s.account, sessionToken: s.sessionToken });
+      if (s.error) setError(s.error);
+    }), []);
+    const signup = React.useCallback((p) => { setError(null); conn.send({ type: "auth.signup", ...p }); }, []);
+    const login = React.useCallback((p) => { setError(null); conn.send({ type: "auth.login", ...p }); }, []);
+    const logout = React.useCallback(() => { setError(null); conn.send({ type: "auth.logout" }); }, []);
+    const updateProfile = React.useCallback((p) => { setError(null); conn.send({ type: "auth.profile", ...p }); }, []);
+    const clearError = React.useCallback(() => setError(null), []);
+    return { ...auth, error, signup, login, logout, updateProfile, clearError };
+  }
+
   // Heartbeat is now run inside the connection — keep this no-op so existing
   // call sites (App.jsx) don't break.
   function useHeartbeat() { /* no-op: handled by connection */ }
 
   window.KTV = window.KTV || {};
   Object.assign(window.KTV, {
-    SLUG, useRoom, useMe, useHeartbeat, blankRoom,
+    SLUG, useRoom, useMe, useFavorites, useAuth, useHeartbeat, blankRoom,
     _conn: conn,
   });
 })();

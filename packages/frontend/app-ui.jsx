@@ -29,6 +29,10 @@ function IconBtn({ glyph, title, onClick, color, disabled }) {
 }
 
 const Glyph = {
+  plus: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
+  catalog: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>,
+  starOutline: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l2.9 6.1 6.7.7-5 4.6 1.5 6.6L12 17.7 5.9 21l1.5-6.6-5-4.6 6.7-.7L12 3z"/></svg>,
+  starFilled: <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 3l2.9 6.1 6.7.7-5 4.6 1.5 6.6L12 17.7 5.9 21l1.5-6.6-5-4.6 6.7-.7L12 3z"/></svg>,
   up: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 14l6-6 6 6"/></svg>,
   down: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 10l6 6 6-6"/></svg>,
   top: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 6h14M12 20V10M7 14l5-5 5 5"/></svg>,
@@ -44,7 +48,7 @@ const Glyph = {
   link: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>,
 };
 
-function AddSongInput({ onAdd, me }) {
+function AddSongInput({ onAdd, me, onOpenCatalog }) {
   const [val, setVal] = React.useState("");
   const [err, setErr] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -76,14 +80,40 @@ function AddSongInput({ onAdd, me }) {
         <span className="add-icon">{Glyph.link}</span>
         <input className="add-field" placeholder="Paste a Bilibili / YouTube link (b23.tv / youtu.be ok)" value={val}
           onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
-        <NeonButton accent="pink" size="md" onClick={submit} disabled={busy || !val.trim()}>{busy ? "PARSING…" : "QUEUE +"}</NeonButton>
+        <button
+          className={`side-action add-plus ${busy ? "is-busy" : ""}`}
+          title={busy ? "Parsing…" : "Add link to queue"}
+          onClick={submit}
+          disabled={busy || !val.trim()}
+        >
+          {Glyph.plus}
+        </button>
+        <button
+          className="side-action open-catalog"
+          title="Open my favorites (歌单)"
+          onClick={onOpenCatalog}
+        >
+          {Glyph.catalog}
+        </button>
       </div>
       {err ? <div className="add-err">{err}</div> : null}
     </div>
   );
 }
 
-function QueueRow({ song, idx, isCurrent, onTop, onDelete }) {
+function StarBtn({ filled, onClick, title }) {
+  return (
+    <button
+      className={`star-btn ${filled ? "is-on" : ""}`}
+      title={title || (filled ? "Remove from favorites" : "Add to favorites")}
+      onClick={onClick}
+    >
+      {filled ? Glyph.starFilled : Glyph.starOutline}
+    </button>
+  );
+}
+
+function QueueRow({ song, idx, isCurrent, onTop, onDelete, onToggleFavorite, isFavorited }) {
   const askDelete = () => {
     const ok = window.confirm(`Remove “${song.title}” from the queue?`);
     if (ok) onDelete(song.id);
@@ -101,6 +131,9 @@ function QueueRow({ song, idx, isCurrent, onTop, onDelete }) {
         </div>
       </div>
       <div className="q-actions">
+        {onToggleFavorite ? (
+          <StarBtn filled={isFavorited} onClick={() => onToggleFavorite(song)} />
+        ) : null}
         {!isCurrent && (
           <>
             <IconBtn glyph={Glyph.top} title="Move to top" onClick={() => onTop(song.id)} color="cyan" disabled={idx === 0} />
@@ -190,5 +223,7 @@ function Onboarding({ onDone, onAnonymous }) {
   );
 }
 
-window.KTV.UI = { NeonButton, IconBtn, Glyph, AddSongInput, QueueRow, ProfileSheet, Onboarding,
-  fmtTime: __UI_fmtTime, ago: __UI_ago, EMOJI_POOL, uid: __UI_uid };
+window.KTV.UI = Object.assign(window.KTV.UI || {}, {
+  NeonButton, IconBtn, StarBtn, Glyph, AddSongInput, QueueRow, ProfileSheet, Onboarding,
+  fmtTime: __UI_fmtTime, ago: __UI_ago, EMOJI_POOL, uid: __UI_uid,
+});

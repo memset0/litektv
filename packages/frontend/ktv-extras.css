@@ -188,3 +188,152 @@ body[data-font="display"] {
 .fab-qr-body {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
+
+/* ── side-panel + and 📚 buttons (replace the old QUEUE + label) ───────── */
+.side-action {
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 46, 166, 0.18), rgba(164, 92, 255, 0.18));
+  color: var(--ink);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.side-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 6px 18px rgba(255, 46, 166, 0.25);
+}
+.side-action:disabled { opacity: 0.4; cursor: not-allowed; }
+.side-action.add-plus { color: var(--neon-pink); }
+.side-action.add-plus.is-busy { animation: side-pulse 0.9s ease-in-out infinite; }
+.side-action.open-catalog { color: var(--neon-cyan); }
+@keyframes side-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ── star toggle ──────────────────────────────────────────────────────── */
+.star-btn {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-mute);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+.star-btn:hover { color: var(--neon-yellow); transform: scale(1.1); }
+.star-btn.is-on { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255, 244, 92, 0.7); }
+
+.hist-actions { display: flex; align-items: center; gap: 6px; }
+
+/* ── catalog modal ───────────────────────────────────────────────────── */
+.catalog-overlay { z-index: 60; }
+.catalog-sheet {
+  width: min(560px, 92vw);
+  max-height: min(78vh, 720px);
+  display: flex; flex-direction: column;
+}
+.catalog-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-left: 8px;
+  color: var(--ink-mute);
+}
+.catalog-search-row {
+  padding: 0 var(--pad) 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.catalog-search {
+  width: 100%;
+  background: rgba(7, 6, 15, 0.65);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.catalog-search:focus { border-color: var(--line-strong); }
+.catalog-account-nudge {
+  font-size: 12px;
+  color: var(--neon-cyan);
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+.catalog-list {
+  overflow-y: auto;
+  padding: 0 var(--pad) 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.cat-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.cat-row:hover { background: var(--card-hi); }
+.cat-meta { flex: 1; min-width: 0; }
+.cat-title {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cat-sub {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--ink-mute);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.cat-p {
+  background: rgba(44, 245, 255, 0.15);
+  color: var(--neon-cyan);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.cat-actions { display: flex; align-items: center; gap: 6px; }
+.cat-add {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 46, 166, 0.12);
+  color: var(--neon-pink);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s;
+}
+.cat-add:hover { background: rgba(255, 46, 166, 0.22); }
+.cat-add.is-flash {
+  background: rgba(44, 245, 255, 0.22);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+}
+.cat-unstar {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--neon-yellow);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.cat-unstar:hover { background: rgba(255, 244, 92, 0.1); }
+
+/* ── auth modal extras ───────────────────────────────────────────────── */
+.auth-sheet { width: min(420px, 92vw); }
+.me-chip.is-account {
+  border-color: var(--line-strong);
+  background: rgba(44, 245, 255, 0.08);
+}
+.me-chip .me-tag {
+  margin-left: 6px;
+  color: var(--ink-mute);
+  font-size: 12px;
+}
+

@@ -30,24 +30,24 @@
 
 ## 5. Frontend identity + favorites store
 
-- [ ] 5.1 In `packages/frontend/state.jsx`, extend `me` with `accountId?`, `sessionToken?`; persist `sessionToken` under a new key (`ktv:session`) separate from `ktv:me`.
-- [ ] 5.2 Add a `favorites` store in `state.jsx` that subscribes to `{type:"favorites"}` messages and exposes `useFavorites()` plus `addFavorite(song)` / `removeFavorite(song)` helpers.
-- [ ] 5.3 Add `useAuth()` exposing `signup({name, password, emoji})`, `login({name, password})`, `logout()`, `updateProfile({name?, password?, emoji?})`, all routed through the existing WS connection.
-- [ ] 5.4 On WS `open`, automatically send `{type:"auth.attach", token}` if a session token is in `localStorage`; on `auth.ok` update `me` accordingly.
+- [x] 5.1 In `packages/frontend/state.jsx`, extend `me` with `accountId?`, `sessionToken?`; persist `sessionToken` under a new key (`ktv:session`) separate from `ktv:me`.
+- [x] 5.2 Add a `favorites` store in `state.jsx` that subscribes to `{type:"favorites"}` messages and exposes `useFavorites()` plus `addFavorite(song)` / `removeFavorite(song)` helpers.
+- [x] 5.3 Add `useAuth()` exposing `signup({name, password, emoji})`, `login({name, password})`, `logout()`, `updateProfile({name?, password?, emoji?})`, all routed through the existing WS connection.
+- [x] 5.4 On WS `open`, automatically send `{type:"auth.attach", token}` if a session token is in `localStorage`; on `auth.ok` update `me` accordingly.
 
 ## 6. Frontend pinyin search helper
 
-- [ ] 6.1 Add `pinyin-pro` (or equivalent, evaluated at impl time for bundle size) to the frontend; lazy-load it from the catalog modal entry point so app boot is unaffected.
-- [ ] 6.2 Implement `buildSearchIndex(title) -> {full, initials, lower}` and `matchQuery(query, index) -> boolean` for case-insensitive substring matching.
-- [ ] 6.3 Memoize the per-favorite indexes keyed by `(source, videoId, page)` so re-renders don't recompute pinyin.
+- [x] 6.1 Add `pinyin-pro` (or equivalent, evaluated at impl time for bundle size) to the frontend; lazy-load it from the catalog modal entry point so app boot is unaffected.
+- [x] 6.2 Implement `buildSearchIndex(title) -> {full, initials, lower}` and `matchQuery(query, index) -> boolean` for case-insensitive substring matching.
+- [x] 6.3 Memoize the per-favorite indexes keyed by `(source, videoId, page)` so re-renders don't recompute pinyin.
 
 ## 7. Frontend UI rework
 
-- [ ] 7.1 In `packages/frontend/app-ui.jsx`, replace the side-panel "Queue" header button with a `+` icon button (opens the existing add-link input) and an adjacent 📚 icon button (opens the catalog modal). Remove any leftover "Queue" label styles in `ktv.css` / `ktv-extras.css`.
-- [ ] 7.2 Build the catalog modal: centered dialog with backdrop, search input pinned at the top, list ordered by `added_at` DESC, Esc-to-close + backdrop-click-to-close. Each row shows title / source badge / "+ to queue" action / unstar action.
-- [ ] 7.3 Wire the modal's "+ to queue" action to `send({type:"queue.add", ref:{source, videoId, page}})` and show a transient confirmation on the row; keep the modal open.
-- [ ] 7.4 Add a star toggle to every queue row and history row in the side-panel list; bind to the `favorites` store. Empty/filled icon reflects current favorites snapshot.
-- [ ] 7.5 Add a minimal auth UI (login / signup / logout / profile-edit form) reachable from the existing identity area; show "create an account to keep your favorites forever" nudge once anonymous favorite count ≥3.
+- [x] 7.1 In `packages/frontend/app-ui.jsx`, replace the side-panel "Queue" header button with a `+` icon button (opens the existing add-link input) and an adjacent 📚 icon button (opens the catalog modal). Remove any leftover "Queue" label styles in `ktv.css` / `ktv-extras.css`.
+- [x] 7.2 Build the catalog modal: centered dialog with backdrop, search input pinned at the top, list ordered by `added_at` DESC, Esc-to-close + backdrop-click-to-close. Each row shows title / source badge / "+ to queue" action / unstar action.
+- [x] 7.3 Wire the modal's "+ to queue" action to `send({type:"queue.add", ref:{source, videoId, page}})` and show a transient confirmation on the row; keep the modal open.
+- [x] 7.4 Add a star toggle to every queue row and history row in the side-panel list; bind to the `favorites` store. Empty/filled icon reflects current favorites snapshot.
+- [x] 7.5 Add a minimal auth UI (login / signup / logout / profile-edit form) reachable from the existing identity area; show "create an account to keep your favorites forever" nudge once anonymous favorite count ≥3.
 
 ## 8. Privacy / canonicalization sweep
 

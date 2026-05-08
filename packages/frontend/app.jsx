@@ -1,6 +1,6 @@
 // app.jsx — main App orchestrator (English-only, fixed orbitron / cyber / comfy)
 
-const { useRoom: __useRoom, useMe: __useMe, SLUG: __SLUG } = window.KTV;
+const { useRoom: __useRoom, useMe: __useMe, useFavorites: __useFavorites, useAuth: __useAuth, SLUG: __SLUG } = window.KTV;
 const __UI = window.KTV.UI;
 
 // ── Page-wide danmaku layer (visible when not fullscreen) ─────────
@@ -139,7 +139,7 @@ function RoomBadge({ slug }) {
   );
 }
 
-function HistoryList({ items, onReadd }) {
+function HistoryList({ items, onReadd, onToggleFavorite, isFavorited }) {
   if (!items || items.length === 0) return <div className="empty">No songs sung yet ✦</div>;
   return (
     <div className="hist-list">
@@ -156,7 +156,12 @@ function HistoryList({ items, onReadd }) {
               <span className="src-tag" data-src={s.source}>{s.source === "yt" ? "YT" : "Bili"}</span>
             </div>
           </div>
-          <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
+          <div className="hist-actions">
+            {onToggleFavorite ? (
+              <__UI.StarBtn filled={isFavorited(s)} onClick={() => onToggleFavorite(s)} />
+            ) : null}
+            <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
+          </div>
         </div>
       ))}
     </div>
@@ -200,6 +205,14 @@ function App() {
   // and the server broadcasts the canonical state back to every client.
   const [room, send] = __useRoom();
   const [me, updateMe] = __useMe();
+  const [, favOps] = __useFavorites();
+  const auth = __useAuth();
+  const [showCatalog, setShowCatalog] = React.useState(false);
+  const [authMode, setAuthMode] = React.useState(null); // null | "login" | "signup"
+  const toggleFavorite = React.useCallback((song) => {
+    if (favOps.isFavorited(song)) favOps.removeFavorite(song);
+    else favOps.addFavorite(song);
+  }, [favOps]);
 
   // Locked aesthetic — orbitron / cyber / comfy
   React.useEffect(() => {
@@ -256,6 +269,18 @@ function App() {
         </div>
         <div className="topbar-right">
           <RoomBadge slug={__SLUG} />
+          {auth.account ? (
+            <button className="me-chip is-account" onClick={() => auth.logout()} title="Logged in — click to log out">
+              <span className="me-emoji">{auth.account.emoji}</span>
+              <span className="me-name">{auth.account.name}</span>
+              <span className="me-tag">⏏</span>
+            </button>
+          ) : (
+            <button className="me-chip" onClick={() => setAuthMode("login")} title="登录账号 · 跨房间收藏">
+              <span className="me-emoji">↪</span>
+              <span className="me-name">LOGIN</span>
+            </button>
+          )}
           <button className="me-chip" onClick={() => setShowProfile(true)}>
             <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>
             <span className="me-name">{me.anonymous ? "Anonymous" : (me.name || "Unnamed")}</span>
@@ -292,7 +317,7 @@ function App() {
         </section>
 
         <section className="side-col">
-          <__UI.AddSongInput onAdd={addSong} me={me} />
+          <__UI.AddSongInput onAdd={addSong} me={me} onOpenCatalog={() => setShowCatalog(true)} />
           <div className="tabs">
             <button className={`tab ${tab === "queue" ? "is-on" : ""}`} onClick={() => setTab("queue")}>
               QUEUE <span className="tab-count">{room.queue.length}</span>
@@ -343,13 +368,20 @@ function App() {
                       onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
                     >
                       <__UI.QueueRow song={s} idx={i} isCurrent={false}
-                        onTop={topSong} onDelete={deleteSong} />
+                        onTop={topSong} onDelete={deleteSong}
+                        onToggleFavorite={toggleFavorite}
+                        isFavorited={favOps.isFavorited(s)} />
                     </div>
                   );
                 })
               )
             ) : (
-              <HistoryList items={room.history} onReadd={(s) => addSong({ ...s, id: __UI.uid(), addedAt: Date.now() })} />
+              <HistoryList
+                items={room.history}
+                onReadd={(s) => addSong({ ...s, id: __UI.uid(), addedAt: Date.now() })}
+                onToggleFavorite={toggleFavorite}
+                isFavorited={favOps.isFavorited}
+              />
             )}
           </div>
         </section>
@@ -358,6 +390,18 @@ function App() {
       {showProfile && (
         <__UI.ProfileSheet me={me} onUpdate={updateMe} onClose={() => setShowProfile(false)} />
       )}
+      <__UI.CatalogModal
+        open={showCatalog}
+        onClose={() => setShowCatalog(false)}
+        account={auth.account}
+        onAddRef={(ref) => send({ type: "queue.add", ref })}
+      />
+      <__UI.AuthModal
+        open={!!authMode}
+        mode={authMode || "login"}
+        onModeChange={(m) => setAuthMode(m)}
+        onClose={() => setAuthMode(null)}
+      />
     </div>
   );
 }

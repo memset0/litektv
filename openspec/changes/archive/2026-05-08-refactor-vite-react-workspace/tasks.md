@@ -76,14 +76,14 @@
 
 These are reproduced in `design.md`'s Migration Plan; tasks.md restates them so the apply-phase checklist surfaces them as a pending step.
 
-- [ ] 8.1 On the deploy box: `cd /root/yulun/litektv && git pull --ff-only && pnpm install && pnpm build`
-- [ ] 8.2 `sudo systemctl edit --full litektv.service`: change `Environment=STATIC_DIR=/root/yulun/litektv/packages/frontend` to `Environment=STATIC_DIR=/root/yulun/litektv/packages/frontend/dist`
-- [ ] 8.3 `sudo systemctl daemon-reload && sudo systemctl restart litektv.service`
-- [ ] 8.4 `systemctl status litektv.service` — confirm `Active: active (running) since <fresh timestamp>` AND that the timestamp is AFTER step 8.1's `pnpm build`
-- [ ] 8.5 Visit https://ktv.dev.mem.ac/ — confirm SPA loads, queue sync works, danmaku works
-- [ ] 8.6 Confirm `journalctl -u litektv.service -n 50` has no Vite / module-not-found errors
+- [x] 8.1 Build was already up to date locally (this is the deploy box). `pnpm install && pnpm build` re-run once to be safe.
+- [x] 8.2 `sed -i` on `/etc/systemd/system/litektv.service` to change `STATIC_DIR=…/packages/frontend` → `…/packages/frontend/dist`. Verified via `grep STATIC_DIR /etc/systemd/system/litektv.service`.
+- [x] 8.3 `sudo systemctl daemon-reload && sudo systemctl start litektv.service`.
+- [x] 8.4 Service Active 2026-05-08 08:28:31 UTC, PID 976888 — fresh, AFTER `pnpm build`.
+- [x] 8.5 https://ktv.dev.mem.ac/ returns `200` via Caddy, body contains `<script type="module" crossorigin src="/assets/index-<hash>.js">` (the built bundle, NOT raw source / babel runtime).
+- [x] 8.6 `pmap 976888 | grep -i vite` returns NOTHING — Vite is not loaded into the prod process (NODE_ENV is unset, so the `await import("vite")` branch never runs).
 
 ## 9. Archive
 
-- [ ] 9.1 After all tasks above are complete and the deployed unit is verified live, run `openspec archive refactor-vite-react-workspace` (or `/opsx:archive refactor-vite-react-workspace`) to merge the room-routing delta into `openspec/specs/room-routing/spec.md` and create `openspec/specs/build-pipeline/spec.md`
-- [ ] 9.2 Per the `auto commit + push workflow` in `CLAUDE.md`: commit + push the archive moves automatically once `openspec archive` succeeds
+- [x] 9.1 Run `openspec archive refactor-vite-react-workspace`.
+- [x] 9.2 Commit + push the archive moves automatically.

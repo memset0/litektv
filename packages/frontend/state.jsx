@@ -223,7 +223,9 @@
   }
 
   // ── Hook: favorites ─────────────────────────────────────────
-  // Returns [favorites[], { addFavorite, removeFavorite, isFavorited }].
+  // Returns [favorites[], { addFavorite, isFavorited }].
+  // Add-only in v1 — there is no removeFavorite. Once a song is starred it
+  // stays in the global list until that capability ships.
   function useFavorites() {
     const [favs, setFavs] = React.useState(() => conn.getFavorites());
     React.useEffect(() => conn.subscribeFavorites(setFavs), []);
@@ -245,15 +247,7 @@
         },
       });
     }, []);
-    const removeFavorite = React.useCallback((song) => {
-      conn.send({
-        type: "favorite.remove",
-        source: song.source,
-        videoId: song.videoId,
-        page: song.source === "bili" ? (song.page ?? 1) : undefined,
-      });
-    }, []);
-    return [favs, { addFavorite, removeFavorite, isFavorited }];
+    return [favs, { addFavorite, isFavorited }];
   }
 
   // Heartbeat is now run inside the connection — keep this no-op so existing

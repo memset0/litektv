@@ -11,7 +11,7 @@ On every successful `hello`, the server SHALL send the connecting client a `{typ
 
 ### Requirement: Favorites messages
 
-The server SHALL accept `favorite.add`, `favorite.remove`, and `favorite.list` from any connected client. After any successful favorite mutation, the server SHALL broadcast `{type:"favorites", favorites:Favorite[]}` to **every** connected WebSocket regardless of room. Favorites SHALL NOT be included in any `state` message.
+The server SHALL accept `favorite.add` and `favorite.list` from any connected client. There SHALL be NO `favorite.remove` message in v1 — sending it SHALL be rejected with `{type:"error", error:"bad message"}` and SHALL NOT mutate state. After any successful favorite mutation, the server SHALL broadcast `{type:"favorites", favorites:Favorite[]}` to **every** connected WebSocket regardless of room. Favorites SHALL NOT be included in any `state` message.
 
 #### Scenario: Mutation broadcasts site-wide
 
@@ -25,7 +25,7 @@ The server SHALL accept `favorite.add`, `favorite.remove`, and `favorite.list` f
 
 ### Requirement: Favorites rate limit
 
-A token-bucket rate limit SHALL apply to `favorite.add` + `favorite.remove` combined, at 60/min per `userId`.
+A token-bucket rate limit SHALL apply to `favorite.add`, at 60/min per `userId`.
 
 #### Scenario: Favorite spam from one tab
 

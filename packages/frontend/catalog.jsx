@@ -2,14 +2,14 @@
 //
 // Centered popup over the app. Search input pinned at the top. List ordered
 // by added_at DESC (server-side; we just render the order we received).
-// Esc / backdrop click closes; row actions are "+ to queue" and "remove
-// (un-star)".
+// Esc / backdrop click closes. Each row has a single "+ to queue" action;
+// removing a favorite is intentionally not supported in v1.
 
 (function () {
   const __UI = window.KTV.UI;
 
   function CatalogModal({ open, onClose, onAddRef }) {
-    const [favs, favOps] = window.KTV.useFavorites();
+    const [favs] = window.KTV.useFavorites();
     const [q, setQ] = React.useState("");
     const [recentlyAdded, setRecentlyAdded] = React.useState({});
     const inputRef = React.useRef(null);
@@ -52,7 +52,7 @@
           </div>
           <div className="catalog-list scrollbar">
             {favs.length === 0 ? (
-              <div className="empty">还没有收藏的歌 · 在队列或历史里点 ★ 加进来</div>
+              <div className="empty">还没有收藏的歌 · 在队列或历史里点 ☆ 加进来</div>
             ) : filtered.length === 0 ? (
               <div className="empty">没有匹配「{q}」的歌</div>
             ) : (
@@ -91,13 +91,6 @@
                         title="加入队列"
                       >
                         {recentlyAdded[key] ? "✓ 已加" : "+ 加入"}
-                      </button>
-                      <button
-                        className="cat-unstar"
-                        title="移出收藏"
-                        onClick={() => favOps.removeFavorite(f)}
-                      >
-                        ★
                       </button>
                     </div>
                   </div>

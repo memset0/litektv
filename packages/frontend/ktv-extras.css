@@ -221,8 +221,9 @@ body[data-font="display"] {
   cursor: pointer;
   transition: color 0.12s ease, transform 0.12s ease;
 }
-.star-btn:hover { color: var(--neon-yellow); transform: scale(1.1); }
+.star-btn:hover:not(:disabled) { color: var(--neon-yellow); transform: scale(1.1); }
 .star-btn.is-on { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255, 244, 92, 0.7); }
+.star-btn.is-on:disabled { cursor: default; opacity: 1; }
 
 .hist-actions { display: flex; align-items: center; gap: 6px; }
 
@@ -309,15 +310,3 @@ body[data-font="display"] {
   color: var(--neon-cyan);
   border-color: var(--neon-cyan);
 }
-.cat-unstar {
-  width: 28px; height: 28px;
-  display: grid; place-items: center;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--neon-yellow);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.cat-unstar:hover { background: rgba(255, 244, 92, 0.1); }
-

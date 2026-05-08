@@ -167,17 +167,3 @@ export function addFavorite(fav: Favorite): { inserted: boolean } {
     );
   return { inserted: result.changes > 0 };
 }
-
-export function removeFavorite(
-  source: Source,
-  videoId: string,
-  page: number,
-): { removed: boolean } {
-  const result = requireDb()
-    .prepare(
-      `DELETE FROM favorites WHERE source = ? AND video_id = ? AND page = ?`,
-    )
-    .run(source, videoId, page);
-  return { removed: result.changes > 0 };
-}
-

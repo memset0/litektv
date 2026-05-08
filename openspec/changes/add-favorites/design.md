@@ -24,7 +24,8 @@ Stakeholders are end-users (singers wanting a personal song list) and us as oper
 **Non-Goals:**
 
 - **Any account / login / password system.** Identity for presence/`addedBy` stays the existing `localStorage` `userId` plus the freely-set `name`/`emoji` profile.
-- Per-user or private favorites — every favorite is public. There is no scoping. Anyone can star, anyone can unstar.
+- Per-user or private favorites — every favorite is public. There is no scoping. Anyone can star.
+- **Removing a song from favorites.** Add-only in v1; the user explicitly deferred unstar. Catalog modal has no remove button and the star toggle disables itself once filled.
 - Multi-`p` page-picker UI in the queue/favorites add flow (kept as a follow-up; backend stays compatible).
 - Per-favorite tagging, ordering, or playlists. Favorites are an unordered set keyed by `(source, videoId, page)`, surfaced in `added_at DESC` order.
 - Migrating already-stored room rows. Existing room JSON is left as-is; canonicalization applies on the next mutation.
@@ -42,6 +43,12 @@ Favorites ride a separate persistence path (new `favorites` table) and a separat
 The `favorites` table has no `owner_key` column. PK is `(source, video_id, page)`. First-starrer wins on conflict; subsequent stars of the same song are no-ops. Anyone may unstar.
 
 **Why:** Per the user's directive, favorites are explicitly public. Per-user lists or visibility scopes would require an identity layer the project has chosen not to build.
+
+### Decision: Add-only in v1 (no unstar / remove)
+
+The favorites WebSocket family ships with `favorite.add` and `favorite.list` only. There is no `favorite.remove` message and no `removeFavorite` DB accessor. The catalog modal renders a single "+ to queue" action per row. The star toggle on queue/history rows is `disabled` once filled (with a `已收藏` tooltip) so it's clear that the action is irreversible for now.
+
+**Why:** The user explicitly deferred unstar — favorites are still a young feature and the product hasn't yet decided on the semantics ("anyone can unstar?" leans noisy; "only the favoriter can unstar?" leans like accounts). Shipping add-only keeps the surface tiny and avoids painting ourselves into a corner. If/when removal is wanted, it's a small additive change (one WS handler, one DB delete, one UI button).
 
 ### Decision: `addedBy` is server-stamped from presence
 
@@ -99,7 +106,7 @@ Each queue/history row gets a star toggle on the right edge.
 
 ## Risks / Trade-offs
 
-- **[Risk]** Anyone can unstar anything (favorites are public, no owner check on remove) → **Mitigation:** none. Documented as part of the "public list" model. Worst case is a friendly admin-style intervention; data loss is recoverable by re-starring.
+- **[Risk]** No way to remove a misclicked or low-quality star without a manual DB intervention → **Mitigation:** accepted for v1 as the cost of deferring unstar. If the global list gets meaningfully noisy before remove ships, the operator can `DELETE FROM favorites WHERE …` directly.
 - **[Risk]** A noisy / abusive client could spam the global list → **Mitigation:** existing 60/min favorite rate limit per `userId`; if needed we can add a hard cap on total entries.
 - **[Risk]** Pinyin library bundle size on slow networks → **Mitigation:** keep the script tag near the end of `<head>` so it doesn't block first paint.
 - **[Risk]** Existing Bilibili rooms may have stored thumbs whose URLs include tracking-ish suffixes from the API → **Mitigation:** none needed; thumbs are display-only and from `i*.hdslb.com`, not the user's share link. We are only canonicalizing the *input* URL, not third-party-served images.

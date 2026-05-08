@@ -207,9 +207,10 @@ function App() {
   const [me, updateMe] = __useMe();
   const [, favOps] = __useFavorites();
   const [showCatalog, setShowCatalog] = React.useState(false);
+  // v1 is add-only; clicking a filled star is a no-op (the StarBtn itself
+  // also disables clicks, this is belt-and-suspenders).
   const toggleFavorite = React.useCallback((song) => {
-    if (favOps.isFavorited(song)) favOps.removeFavorite(song);
-    else favOps.addFavorite(song);
+    if (!favOps.isFavorited(song)) favOps.addFavorite(song);
   }, [favOps]);
 
   // Locked aesthetic — orbitron / cyber / comfy

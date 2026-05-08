@@ -17,25 +17,27 @@ The buttons SHALL be visible regardless of whether the user is logged in.
 #### Scenario: Catalog button opens the modal
 
 - **WHEN** the user clicks 📚
-- **THEN** a modal dialog SHALL open centered over the app with a backdrop, containing a search input pinned at the top and a scrollable list of the current user's favorites ordered by `added_at` descending (newest first); pressing `Esc` or clicking the backdrop SHALL close it
+- **THEN** a modal dialog SHALL open centered over the app with a backdrop, containing a search input pinned at the top and a scrollable list of the global favorites ordered by `added_at` descending (newest first); pressing `Esc` or clicking the backdrop SHALL close it
 
-### Requirement: Star toggle on every queue and history row
+### Requirement: Star button on every queue and history row (add-only)
 
-Every queue row (current and pending) and every history row SHALL render a star icon. The icon SHALL be filled when the row's `(source, videoId, page?)` is present in the current user's favorites snapshot, otherwise empty. Clicking the star SHALL send `{type:"favorite.add", song:{...}}` or `{type:"favorite.remove", source, videoId, page?}` accordingly.
+Every queue row (current and pending) and every history row SHALL render a star button. The icon SHALL be filled when the row's `(source, videoId, page?)` is present in the global favorites snapshot, otherwise empty.
+
+When the row is NOT yet favorited, clicking the star SHALL send `{type:"favorite.add", song:{...}}`. When the row IS already favorited, the button SHALL be `disabled` (no click handler, no WS message) and present a tooltip indicating the song is already saved (`已收藏`). v1 does NOT support unstar from this control.
 
 #### Scenario: Star a pending row
 
 - **WHEN** the user clicks an empty star on a pending queue row
-- **THEN** the client SHALL send `favorite.add` populated from the row's `source`, `videoId`, `page`, `title`, and `thumb`, and after the resulting `favorites` snapshot the star SHALL render as filled
+- **THEN** the client SHALL send `favorite.add` populated from the row's `source`, `videoId`, `page`, `title`, and `thumb`, and after the resulting `favorites` snapshot the star SHALL render as filled and disabled
 
-#### Scenario: Unstar a history row
+#### Scenario: Clicking a filled star is a no-op
 
-- **WHEN** the user clicks a filled star on a history row
-- **THEN** the client SHALL send `favorite.remove` and the star SHALL switch back to empty after the next `favorites` snapshot
+- **WHEN** the user clicks a filled star on any queue or history row
+- **THEN** no WebSocket message SHALL be sent and the favorites set SHALL remain unchanged
 
-### Requirement: Catalog drawer "+ to queue" action
+### Requirement: Catalog modal "+ to queue" action
 
-Each favorite row in the catalog modal SHALL expose an "add to queue" action. Clicking it SHALL send `{type:"queue.add", ref:{source, videoId, page?}}` (using the `ref` shape, not a URL) and SHALL NOT close the drawer, so users can add several songs in a row.
+Each favorite row in the catalog modal SHALL expose a single action button — "+ 加入" — that adds the song to the queue. Clicking it SHALL send `{type:"queue.add", ref:{source, videoId, page?}}` (using the `ref` shape, not a URL) and SHALL NOT close the modal, so users can add several songs in a row. The catalog modal SHALL NOT expose a per-row remove/unstar control in v1.
 
 #### Scenario: Add three favorites in a row
 

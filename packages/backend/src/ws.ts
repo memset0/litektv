@@ -6,7 +6,6 @@ import {
   addFavorite,
   findFavorite,
   listFavorites,
-  removeFavorite,
 } from "./db.js";
 import { parseRef } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
@@ -111,12 +110,6 @@ const incoming = z.discriminatedUnion("type", [
     anonymous: z.boolean().optional(),
   }),
   z.object({ type: z.literal("favorite.add"), song: favoriteAddSongSchema }),
-  z.object({
-    type: z.literal("favorite.remove"),
-    source: z.enum(["yt", "bili"]),
-    videoId: z.string().min(1).max(64),
-    page: z.number().int().min(1).optional(),
-  }),
   z.object({ type: z.literal("favorite.list") }),
 ]);
 
@@ -200,9 +193,10 @@ function onConnection(ws: WebSocket, slug: string) {
       rawType = obj?.type;
       parsed = incoming.parse(obj);
     } catch (e) {
-      const isFav = rawType === "favorite.add" || rawType === "favorite.remove";
       const msg =
-        e instanceof z.ZodError && isFav && e.errors.some((x) => x.code === "unrecognized_keys")
+        e instanceof z.ZodError &&
+        rawType === "favorite.add" &&
+        e.errors.some((x) => x.code === "unrecognized_keys")
           ? "unknown field"
           : "bad message";
       send(ws, { type: "error", error: msg });
@@ -430,17 +424,6 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         addedAt: now(),
       };
       addFavorite(row);
-      broadcastFavorites();
-      return;
-    }
-
-    case "favorite.remove": {
-      if (!favoriteLimiter.allow(s.userId)) {
-        send(ws, { type: "error", error: "rate limited (favorite)" });
-        return;
-      }
-      const page = parsed.source === "bili" ? parsed.page ?? 1 : 0;
-      removeFavorite(parsed.source, parsed.videoId, page);
       broadcastFavorites();
       return;
     }

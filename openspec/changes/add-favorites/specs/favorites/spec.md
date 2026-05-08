@@ -46,19 +46,14 @@ A favorite row SHALL contain `source`, `videoId`, `page` (0 when absent), `title
 - **WHEN** a client posts a song originally pasted as `https://www.bilibili.com/video/BV1y2q6YWEGp/?spm_id_from=..search-card.all.click&vd_source=...`
 - **THEN** the favorite row SHALL store only `source="bili"`, `videoId="BV1y2q6YWEGp"`, `page=0`, plus `title`/`thumb`/`duration` from the parser and `addedBy` from presence — and SHALL NOT contain `spm_id_from`, `vd_source`, or any other query param
 
-### Requirement: Favorites add and remove over WebSocket
+### Requirement: Favorites are add-only over WebSocket
 
-The backend SHALL accept `{type:"favorite.add", song:{source, videoId, page?, title?, thumb?, duration?}}` and `{type:"favorite.remove", source, videoId, page?}` from any connected client. After a successful mutation the server SHALL broadcast `{type:"favorites", favorites:Favorite[]}` to **every** connected client (regardless of room), reflecting the entire updated global list.
+The backend SHALL accept `{type:"favorite.add", song:{source, videoId, page?, title?, thumb?, duration?}}` from any connected client. There SHALL be NO `favorite.remove` message in v1; an unrecognized `type:"favorite.remove"` (or any other unknown type) SHALL be rejected with `{type:"error", error:"bad message"}`. After a successful add the server SHALL broadcast `{type:"favorites", favorites:Favorite[]}` to **every** connected client (regardless of room), reflecting the entire updated global list.
 
-#### Scenario: Remove the only favorite
+#### Scenario: favorite.remove is not a recognized message
 
-- **WHEN** the favorites set has exactly one entry and any user sends `favorite.remove` with its identity
-- **THEN** the server SHALL delete the row and broadcast `{type:"favorites", favorites:[]}` to every connected client
-
-#### Scenario: Anyone may unstar (favorites are public)
-
-- **WHEN** Alice has starred a song and Bob (a different user) sends `favorite.remove` for that song
-- **THEN** the row SHALL be removed and Alice's connections SHALL also receive the updated `favorites` snapshot showing it gone
+- **WHEN** any client sends `{type:"favorite.remove", source, videoId, page}`
+- **THEN** the server SHALL respond with `{type:"error", error:"bad message"}` and SHALL NOT mutate state
 
 #### Scenario: Add without metadata triggers a parser fetch
 
@@ -107,16 +102,23 @@ The catalog modal SHALL match a query string against each favorite's title using
 - **WHEN** the search box is empty
 - **THEN** every favorite row SHALL be visible, ordered by `added_at` descending
 
-### Requirement: Star toggle on queue and history rows
+### Requirement: Star button on queue and history rows is add-only
 
-Every queue row and every history row SHALL render a star toggle. Clicking it SHALL send `favorite.add` (if not yet starred globally) or `favorite.remove` (if starred). The toggle's filled/empty state SHALL reflect the current `favorites` snapshot — which is global, so all users see the same star state for the same song.
+Every queue row and every history row SHALL render a star button. The button's filled/empty state SHALL reflect the current global `favorites` snapshot — which is shared, so all users see the same star state for the same song.
+
+When the row is NOT yet in the favorites set, clicking the button SHALL send `{type:"favorite.add", song:{...}}` derived from the row's fields. When the row IS already in the favorites set, the button SHALL be `disabled` (no click handler, no further request) with a tooltip indicating the song is already saved (e.g. `已收藏`).
 
 #### Scenario: Starring a history entry
 
-- **WHEN** the user clicks the star on a row in the history list
+- **WHEN** the user clicks the star on a row in the history list and that song is not yet in the favorites set
 - **THEN** the client SHALL send `{type:"favorite.add", song:{source, videoId, page?, title, thumb?}}` using the row's existing fields, and the star icon SHALL switch to its filled variant once the resulting `favorites` snapshot arrives
+
+#### Scenario: Clicking an already-filled star is a no-op
+
+- **WHEN** the user clicks a star button on a row whose `(source, videoId, page)` is already in the favorites set
+- **THEN** the client SHALL NOT send any WebSocket message and the favorites set SHALL be unchanged
 
 #### Scenario: A's star fills B's queue row in real time
 
 - **WHEN** user A stars a song that's also in user B's queue rendering
-- **THEN** B's queue row SHALL transition the star icon to filled on the next favorites broadcast, without B needing to refresh
+- **THEN** B's queue row SHALL transition the star icon to filled (and disabled) on the next favorites broadcast, without B needing to refresh

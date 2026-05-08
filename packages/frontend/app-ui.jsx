@@ -102,11 +102,15 @@ function AddSongInput({ onAdd, me, onOpenCatalog }) {
 }
 
 function StarBtn({ filled, onClick, title }) {
+  // Add-only in v1: once a song is starred, the button stays filled and
+  // becomes non-interactive. Removing favorites isn't supported yet.
   return (
     <button
       className={`star-btn ${filled ? "is-on" : ""}`}
-      title={title || (filled ? "Remove from favorites" : "Add to favorites")}
-      onClick={onClick}
+      title={title || (filled ? "已收藏" : "Add to favorites")}
+      onClick={filled ? undefined : onClick}
+      disabled={filled}
+      aria-pressed={filled}
     >
       {filled ? Glyph.starFilled : Glyph.starOutline}
     </button>

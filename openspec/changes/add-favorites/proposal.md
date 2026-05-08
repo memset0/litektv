@@ -7,6 +7,7 @@ Today the queue lives entirely inside one room, so a song someone enjoys vanishe
 - New **favorites** capability that is **GLOBAL — site-wide and shared by every visitor**. Any user can star a song from the queue or history; everybody connected anywhere on the site sees the same list. There is no per-user list.
   - Persisted in SQLite, keyed by `(source, videoId, page)`. First-starrer wins on conflict; subsequent stars of the same song are no-ops.
   - Each favorite row records `addedBy` — the display name + emoji of whoever first starred it — so the catalog modal can show "added by ALICE 🎤" alongside each entry.
+  - **Add-only in v1.** Removing a song from the favorites list is intentionally not supported yet — once starred, a song stays in the global list. The catalog modal has no "unstar" affordance, and the star button on queue/history rows becomes non-interactive once filled. We'll revisit when the product needs it.
   - **BREAKING (storage):** parser output and any stored `Song`/favorite record SHALL drop unrecognized URL query params. Callers that relied on echoing the original URL must read `source`+`videoId`+`page` instead.
 - Queue intake (`queue.add`) and favorites add SHALL accept a favorite reference (`{source, videoId, page?}`) directly, so re-queueing a starred song doesn't require re-parsing the original URL.
 - The queue's `addedBy` is always stamped to the **current user** — replaying a song from history or re-queueing from the catalog SHALL show the live user's name, not whoever queued it the first time.
@@ -33,4 +34,4 @@ Today the queue lives entirely inside one room, so a song someone enjoys vanishe
 - **Frontend (`packages/frontend`)**: `state.jsx` (favorites store), `app-ui.jsx` and `ktv.css` (replace Queue button with `+` and catalog buttons, modal UI), new pinyin-search helper module, queue/history rows gain a star toggle, `addSong` always stamps the current user as `addedBy`.
 - **Storage**: new SQLite table `favorites(source, videoId, page, title, thumb, duration, added_by_id, added_by_name, added_by_emoji, added_at, PRIMARY KEY(source, videoId, page))`. No room-table changes.
 - **Privacy**: Bilibili share URLs with `spm_id_from`, `vd_source`, etc. SHALL no longer be persisted anywhere.
-- **Out of scope**: any account/login/password system; per-user favorite lists or visibility scoping (favorites are public to all visitors); full Bilibili `?p=` page-picker UI.
+- **Out of scope**: any account/login/password system; per-user favorite lists or visibility scoping (favorites are public to all visitors); removing a song from favorites (deferred to a follow-up); full Bilibili `?p=` page-picker UI.

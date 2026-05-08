@@ -111,7 +111,6 @@ function RoomBadge({ slug }) {
   return (
     <div className="room-badge">
       <button className="room-btn" onClick={() => setShowQR(true)}>
-        <span className="room-tag">ROOM</span>
         <span className="room-slug">{slug}</span>
         <span className="room-qr-icon">⌘</span>
       </button>
@@ -254,7 +253,6 @@ function App() {
           <button className="me-chip" onClick={() => setShowProfile(true)}>
             <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>
             <span className="me-name">{me.anonymous ? "Anonymous" : (me.name || "Unnamed")}</span>
-            <span className="me-edit">EDIT ›</span>
           </button>
         </div>
       </header>

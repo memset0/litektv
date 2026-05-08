@@ -7,7 +7,9 @@ import { RateLimiter } from "./rateLimit.js";
 const parseLimiter = new RateLimiter(config.rateLimits.parse.perMinute);
 
 const parseBody = z.object({
-  url: z.string().url().max(2048),
+  // Accept raw share text (e.g. "【title】 https://b23.tv/...") — the parser
+  // extracts the URL itself. Cap length so the bucket can't be abused.
+  url: z.string().min(1).max(2048),
   userId: z.string().min(4).max(64).optional(),
 });
 

@@ -21,13 +21,21 @@ interface NormalizedRef {
   page?: number;
 }
 
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+
 /** Resolve b23.tv-style short links by following HTTP redirects up to 5 hops. */
 async function resolveRedirects(url: string, max = 5): Promise<string> {
   let current = url;
   for (let i = 0; i < max; i++) {
     let res: Response;
     try {
-      res = await fetch(current, { method: "HEAD", redirect: "manual" });
+      res = await fetch(current, {
+        method: "GET",
+        redirect: "manual",
+        headers: { "user-agent": BROWSER_UA, "accept": "*/*" },
+        signal: AbortSignal.timeout(6000),
+      });
     } catch {
       return current;
     }
@@ -40,6 +48,13 @@ async function resolveRedirects(url: string, max = 5): Promise<string> {
     return current;
   }
   return current;
+}
+
+/** Pull the first http(s) URL out of a string — tolerates messy share text
+ * like "【某某 - 哔哩哔哩】 https://b23.tv/abc". */
+function extractUrl(text: string): string | null {
+  const m = text.match(/https?:\/\/[^\s)\]）】"'<>]+/i);
+  return m ? m[0] : null;
 }
 
 function parseYouTube(u: URL): NormalizedRef | null {
@@ -126,22 +141,35 @@ async function fetchBilibiliMeta(
   }
 }
 
-export async function parseLink(rawUrl: string): Promise<ParsedSongMeta> {
-  let resolved = rawUrl.trim();
-  let u: URL;
-  try {
-    u = new URL(resolved);
-  } catch {
-    throw new Error("invalid url");
+export async function parseLink(rawInput: string): Promise<ParsedSongMeta> {
+  const trimmed = (rawInput ?? "").trim();
+  // Accept inputs like "【title - 哔哩哔哩】 https://b23.tv/xyz" — pull the
+  // URL out before parsing so callers don't have to scrub share text.
+  let resolved = extractUrl(trimmed);
+  let u: URL | null = null;
+  if (resolved) {
+    try { u = new URL(resolved); } catch { u = null; }
   }
-  if (u.hostname.toLowerCase() === "b23.tv") {
-    resolved = await resolveRedirects(resolved);
-    u = new URL(resolved);
+  if (u && (u.hostname.toLowerCase() === "b23.tv" || u.hostname.toLowerCase().endsWith(".b23.tv"))) {
+    resolved = await resolveRedirects(resolved!);
+    try { u = new URL(resolved); } catch { /* keep previous u */ }
   }
-  const host = u.hostname.toLowerCase();
   let ref: NormalizedRef | null = null;
-  if (YT_HOSTS.has(host)) ref = parseYouTube(u);
-  else if (BILI_HOSTS.has(host)) ref = parseBilibili(u);
+  if (u) {
+    const host = u.hostname.toLowerCase();
+    if (YT_HOSTS.has(host)) ref = parseYouTube(u);
+    else if (BILI_HOSTS.has(host) || host.endsWith(".bilibili.com")) ref = parseBilibili(u);
+  }
+  // Last-resort fallbacks scan the raw input for ID patterns. Order matters:
+  // BV / av (bilibili) before naked YouTube IDs since YT's pattern is broader.
+  if (!ref) {
+    const bv = trimmed.match(/(BV[0-9A-Za-z]{10})/);
+    if (bv) ref = { source: "bili", videoId: bv[1]! };
+  }
+  if (!ref) {
+    const av = trimmed.match(/\bav(\d{1,12})\b/i);
+    if (av) ref = { source: "bili", videoId: "av" + av[1]! };
+  }
   if (!ref) throw new Error("unsupported url");
 
   const meta =

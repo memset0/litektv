@@ -205,8 +205,6 @@ All styling for the unified row SHALL live under a single CSS namespace prefixed
 - **THEN** the outermost element SHALL have class `song-card` (plus optional state modifiers and the surface-agnostic typed meta-bit classes)
 - **AND** there SHALL be no `q-row`, `hist-row`, or `cat-row` class names anywhere in the rendered DOM
 
-## MODIFIED Requirements
-
 ### Requirement: Uniform row dimensions
 
 Every Queue row, History row, and Catalog row SHALL render at a uniform fixed minimum height (`min-height: 72px`) that comfortably fits a 2-line clamped title plus a 1-line meta row, regardless of whether the row carries a 48px cover image. The title and meta SHALL be vertically centered inside the row regardless of how many lines the title actually takes. Because all three surfaces render through `SongCard`, this constraint SHALL be expressed exactly once (in `.song-card*` CSS) rather than being duplicated per surface, and SHALL produce no overflow on any surface.

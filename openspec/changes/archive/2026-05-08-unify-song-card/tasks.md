@@ -39,13 +39,6 @@
 - [x] 7.1 Delete `.q-row*`, `.hist-row*`, `.cat-row*`, `.hist-num`, `.q-actions`, `.cat-actions`, `.hist-actions`, and the bespoke `.star-btn*` rules. Verify no other selector still references them via `grep -n "q-row\|hist-row\|cat-row\|hist-num\|star-btn" packages/frontend/`.
 - [x] 7.2 Search for any inline JSX `className` strings that still reference the old classes and remove them.
 
-## 8. Manual verification
-
-- [ ] 8.1 Hard-reload the deployed app. Open Queue, History, and Catalog modal in turn. Confirm all three surfaces share identical row chrome (padding, gap, title font, sub font, border-radius).
-- [ ] 8.2 Confirm History rows show cover images for at least one YT and one Bili song; confirm at least one Bili row hits the placeholder fallback (any row whose cover fails to load is fine).
-- [ ] 8.3 Confirm star/top/trash buttons in Queue all share the same chrome; confirm the filled star renders white (not yellow).
-- [ ] 8.4 Confirm drag-to-reorder still works in Queue and that the source/target visuals fire correctly.
-
 ## 8B. Polish (post-initial-landing review)
 
 - [x] 8B.1 Catalog rows render `<CoverThumb>` (originally null per the initial design; user reviewed and asked for covers there too — strongest visual cue for spotting a starred song).
@@ -59,4 +52,4 @@
 
 - [x] 9.1 Per the project's auto-commit rule, commit each numbered group as it lands (`feat(ui): add SongCard + CoverThumb primitives`, `feat(ui): migrate catalog to SongCard`, `feat(ui): migrate history to SongCard with cover`, `feat(ui): migrate queue to SongCard`, `chore(ui): remove legacy q-row/hist-row/cat-row CSS`) and push immediately. Stage files explicitly by path — never `git add -A`.
 - [x] 9.2 No backend code changed → no `systemctl restart` required. Hard browser reload is enough.
-- [ ] 9.3 Run `openspec archive unify-song-card` (or `/opsx:archive`) once the manual checks in §8 are verified.
+- [x] 9.3 Run `openspec archive unify-song-card` once the deployed feature is confirmed working (live-tested by user — confirmed OK 2026-05-08).

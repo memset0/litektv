@@ -10,7 +10,14 @@ import {
   signup as authSignup,
   updateProfile as authUpdateProfile,
 } from "./authService.js";
-import { getAccountById, listFavorites } from "./db.js";
+import {
+  addFavorite,
+  findFavorite,
+  getAccountById,
+  listFavorites,
+  removeFavorite,
+} from "./db.js";
+import { parseRef } from "./parser.js";
 import { RateLimiter } from "./rateLimit.js";
 import {
   getOrCreateRoom,
@@ -29,13 +36,14 @@ import {
   trackPrev,
   type Room,
 } from "./rooms.js";
-import type { Account, OwnerKey, Song } from "./types.js";
+import type { Account, Favorite, OwnerKey, Song } from "./types.js";
 import { clampString, now, uuid } from "./util.js";
 
 const queueAddLimiter = new RateLimiter(config.rateLimits["queue.add"].perMinute);
 const danmakuLimiter = new RateLimiter(config.rateLimits.danmaku.perMinute);
 const authIpLimiter = new RateLimiter(config.rateLimits["auth.ip"].perMinute);
 const authNameLimiter = new RateLimiter(config.rateLimits["auth.name"].perMinute);
+const favoriteLimiter = new RateLimiter(config.rateLimits.favorite.perMinute);
 
 const songSchema = z.object({
   id: z.string().optional(),
@@ -62,10 +70,31 @@ const helloSchema = z.object({
   token: z.string().min(8).max(256).optional(),
 });
 
+const songRefSchema = z.object({
+  source: z.enum(["yt", "bili"]),
+  videoId: z.string().min(1).max(64),
+  page: z.number().int().min(1).optional(),
+});
+
+const favoriteAddSongSchema = z.object({
+  source: z.enum(["yt", "bili"]),
+  videoId: z.string().min(1).max(64),
+  page: z.number().int().min(1).optional(),
+  title: z.string().max(300).optional(),
+  thumb: z.string().max(1024).nullable().optional(),
+  duration: z.number().nonnegative().optional(),
+});
+
 const incoming = z.discriminatedUnion("type", [
   helloSchema,
   z.object({ type: z.literal("heartbeat") }),
-  z.object({ type: z.literal("queue.add"), song: songSchema }),
+  z.object({
+    type: z.literal("queue.add"),
+    // `song` is the legacy full-song payload. `ref` is a canonical ref
+    // (favorite identity) and triggers a metadata lookup server-side.
+    song: songSchema.optional(),
+    ref: songRefSchema.optional(),
+  }),
   z.object({ type: z.literal("queue.move"), id: z.string(), delta: z.union([z.literal(-1), z.literal(1)]) }),
   z.object({ type: z.literal("queue.reorder"), id: z.string(), toIndex: z.number().int().nonnegative() }),
   z.object({ type: z.literal("queue.top"), id: z.string() }),
@@ -109,6 +138,14 @@ const incoming = z.discriminatedUnion("type", [
     emoji: z.string().max(8).optional(),
     password: z.string().min(8).max(200).optional(),
   }),
+  z.object({ type: z.literal("favorite.add"), song: favoriteAddSongSchema }),
+  z.object({
+    type: z.literal("favorite.remove"),
+    source: z.enum(["yt", "bili"]),
+    videoId: z.string().min(1).max(64),
+    page: z.number().int().min(1).optional(),
+  }),
+  z.object({ type: z.literal("favorite.list") }),
 ]);
 
 interface ConnState {
@@ -329,8 +366,11 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
         send(ws, { type: "error", error: "rate limited (queue.add)" });
         return;
       }
-      const sng = parsed.song;
-      const addedBy = s.account
+      if (parsed.song && parsed.ref) {
+        send(ws, { type: "error", error: "supply either song or ref, not both" });
+        return;
+      }
+      const fallbackAddedBy = s.account
         ? {
             id: s.account.accountId,
             name: s.account.name,
@@ -338,20 +378,66 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
             anonymous: false,
           }
         : {
-            id: sng.addedBy.id ?? s.userId,
-            name: clampString(sng.addedBy.name, 32),
-            emoji: sng.addedBy.emoji,
-            anonymous: sng.addedBy.anonymous,
+            id: s.userId,
+            name: s.room.state.users[s.userId]?.name ?? "未命名",
+            emoji: s.room.state.users[s.userId]?.emoji ?? "🎤",
+            anonymous: s.room.state.users[s.userId]?.anonymous ?? false,
           };
-      const song: Omit<Song, "id" | "addedAt"> = {
-        source: sng.source,
-        videoId: sng.videoId,
-        page: sng.page,
-        title: clampString(sng.title, 300) || `${sng.source} ${sng.videoId}`,
-        thumb: sng.thumb ?? null,
-        duration: sng.duration,
-        addedBy,
-      };
+      let song: Omit<Song, "id" | "addedAt"> | null = null;
+      if (parsed.song) {
+        const sng = parsed.song;
+        const addedBy = s.account
+          ? fallbackAddedBy
+          : {
+              id: sng.addedBy.id ?? s.userId,
+              name: clampString(sng.addedBy.name, 32),
+              emoji: sng.addedBy.emoji,
+              anonymous: sng.addedBy.anonymous,
+            };
+        song = {
+          source: sng.source,
+          videoId: sng.videoId,
+          page: sng.page,
+          title: clampString(sng.title, 300) || `${sng.source} ${sng.videoId}`,
+          thumb: sng.thumb ?? null,
+          duration: sng.duration,
+          addedBy,
+        };
+      } else if (parsed.ref) {
+        const ref = parsed.ref;
+        const page = ref.source === "bili" ? ref.page ?? 1 : undefined;
+        // Try cached favorite metadata first to skip the network parse.
+        const ownerKey = s.ownerKey;
+        const cached = ownerKey
+          ? findFavorite(ownerKey, ref.source, ref.videoId, ref.source === "bili" ? page ?? 0 : 0)
+          : null;
+        let title: string | undefined = cached?.title;
+        let thumb: string | null | undefined = cached?.thumb ?? null;
+        let duration: number | undefined = cached?.duration;
+        if (!title) {
+          try {
+            const meta = await parseRef(ref);
+            title = meta.title;
+            thumb = meta.thumb ?? null;
+            duration = meta.duration;
+          } catch {
+            title = `${ref.source === "yt" ? "YouTube" : "Bilibili"} ${ref.videoId}`;
+          }
+        }
+        song = {
+          source: ref.source,
+          videoId: ref.videoId,
+          page,
+          title,
+          thumb: thumb ?? null,
+          duration,
+          addedBy: fallbackAddedBy,
+        };
+      }
+      if (!song) {
+        send(ws, { type: "error", error: "queue.add needs song or ref" });
+        return;
+      }
       queueAdd(s.room, song);
       return;
     }
@@ -540,6 +626,68 @@ async function handleMessage(s: ConnState, parsed: z.infer<typeof incoming>) {
           error: e instanceof AuthError ? e.message : "profile update failed",
         });
       }
+      return;
+    }
+
+    case "favorite.add": {
+      if (!s.ownerKey) {
+        send(ws, { type: "error", error: "hello first" });
+        return;
+      }
+      if (!favoriteLimiter.allow(s.ownerKey)) {
+        send(ws, { type: "error", error: "rate limited (favorite)" });
+        return;
+      }
+      const fav = parsed.song;
+      const page = fav.source === "bili" ? fav.page ?? 1 : 0;
+      let title = fav.title;
+      let thumb = fav.thumb ?? null;
+      let duration = fav.duration;
+      if (!title) {
+        try {
+          const meta = await parseRef({
+            source: fav.source,
+            videoId: fav.videoId,
+            page: fav.source === "bili" ? page : undefined,
+          });
+          title = meta.title;
+          thumb = meta.thumb ?? null;
+          duration = meta.duration;
+        } catch {
+          title = `${fav.source === "yt" ? "YouTube" : "Bilibili"} ${fav.videoId}`;
+        }
+      }
+      const row: Favorite = {
+        source: fav.source,
+        videoId: fav.videoId,
+        page,
+        title,
+        thumb: thumb ?? null,
+        duration,
+        addedAt: now(),
+      };
+      addFavorite(s.ownerKey, row);
+      broadcastFavorites(s.ownerKey);
+      return;
+    }
+
+    case "favorite.remove": {
+      if (!s.ownerKey) {
+        send(ws, { type: "error", error: "hello first" });
+        return;
+      }
+      if (!favoriteLimiter.allow(s.ownerKey)) {
+        send(ws, { type: "error", error: "rate limited (favorite)" });
+        return;
+      }
+      const page = parsed.source === "bili" ? parsed.page ?? 1 : 0;
+      removeFavorite(s.ownerKey, parsed.source, parsed.videoId, page);
+      broadcastFavorites(s.ownerKey);
+      return;
+    }
+
+    case "favorite.list": {
+      sendFavoritesSnapshot(s);
       return;
     }
   }

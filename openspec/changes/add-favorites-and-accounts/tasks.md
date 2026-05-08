@@ -22,11 +22,11 @@
 
 ## 4. Backend favorites handling
 
-- [ ] 4.1 Implement WS handlers `favorite.add`, `favorite.remove`, `favorite.list` in `ws.ts`. `favorite.add` SHALL accept `{song:{source, videoId, page?, title?, thumb?, duration?}}` and call `parseRef` to fill in missing metadata.
-- [ ] 4.2 After every successful favorite mutation, send `{type:"favorites", favorites}` to every WS whose current `ownerKey` matches the mutator's.
-- [ ] 4.3 On every successful `hello`, `auth.attach`, `auth.login`, and `auth.logout`, send a fresh `favorites` snapshot ordered by `added_at DESC`.
-- [ ] 4.4 Extend `queue.add` to accept `{ref:{source, videoId, page?}}` (in addition to the legacy `{song}` shape); on the `ref` path, look up cached favorite metadata first, falling back to `parseRef`.
-- [ ] 4.5 Add the favorites combined rate limit (`60/min` per `ownerKey`).
+- [x] 4.1 Implement WS handlers `favorite.add`, `favorite.remove`, `favorite.list` in `ws.ts`. `favorite.add` SHALL accept `{song:{source, videoId, page?, title?, thumb?, duration?}}` and call `parseRef` to fill in missing metadata.
+- [x] 4.2 After every successful favorite mutation, send `{type:"favorites", favorites}` to every WS whose current `ownerKey` matches the mutator's.
+- [x] 4.3 On every successful `hello`, `auth.attach`, `auth.login`, and `auth.logout`, send a fresh `favorites` snapshot ordered by `added_at DESC`.
+- [x] 4.4 Extend `queue.add` to accept `{ref:{source, videoId, page?}}` (in addition to the legacy `{song}` shape); on the `ref` path, look up cached favorite metadata first, falling back to `parseRef`.
+- [x] 4.5 Add the favorites combined rate limit (`60/min` per `ownerKey`).
 
 ## 5. Frontend identity + favorites store
 

@@ -116,6 +116,7 @@
       const idParam = isBV ? `bvid=${song.videoId}` : `aid=${song.videoId.replace(/^av/, "")}`;
       const params = [
         idParam,
+        `page=${song.page || 1}`,
         `autoplay=${autoplay ? 1 : 0}`,
         `t=${Math.floor(startSec || 0)}`,
         `high_quality=1`,

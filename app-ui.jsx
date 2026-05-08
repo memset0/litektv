@@ -86,11 +86,6 @@ function AddSongInput({ onAdd, me }) {
 function QueueRow({ song, idx, total, isCurrent, onTop, onUp, onDown, onDelete }) {
   return (
     <div className={`q-row ${isCurrent ? "q-row-active" : ""}`}>
-      <div className="q-thumb">
-        {song.thumb ? <img src={song.thumb} alt="" /> :
-          <div className={`q-thumb-fallback q-fb-${song.source}`}><span>{song.source === "yt" ? "YT" : "Bili"}</span></div>}
-        <div className="q-thumb-badge">{song.source === "yt" ? "Y" : "B"}</div>
-      </div>
       <div className="q-meta">
         <div className="q-title" title={song.title}>{song.title}</div>
         <div className="q-sub">

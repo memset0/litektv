@@ -96,7 +96,7 @@ function UsersStrip({ users, meId }) {
           list.map(([id, u]) => (
             <div key={id} className={`user-chip ${id === meId ? "is-me" : ""}`} title={u.name}>
               <span className="user-emoji">{u.emoji}</span>
-              <span className="user-name">{u.name}{id === meId ? " (you)" : ""}</span>
+              <span className="user-name">{u.name}</span>
             </div>
           ))}
       </div>

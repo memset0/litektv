@@ -1,7 +1,8 @@
 # SQLite live data — kept at the legacy backend/data/ path (the user wants
 # the database file to stay where it was even after the packages/ move) but
-# must never be committed.
-backend/
+# must never be committed. Anchored with a leading slash so it only matches
+# the top-level backend/ dir, not packages/backend/.
+/backend/
 
 # OS / editor noise
 .DS_Store

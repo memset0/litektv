@@ -211,8 +211,13 @@ function App() {
   const [tab, setTab] = React.useState("queue");
   const [showProfile, setShowProfile] = React.useState(false);
   const [showOnboard, setShowOnboard] = React.useState(!me.configured);
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [draggingId, setDraggingId] = React.useState(null);
   const [dragOverId, setDragOverId] = React.useState(null);
+
+  React.useEffect(() => {
+    document.title = `Room ${__SLUG} · Neon KTV`;
+  }, []);
 
   const addSong = (song) => {
     send({ type: "queue.add", song });
@@ -240,7 +245,7 @@ function App() {
   const signal = String((room.rev || 0) % 999).padStart(3, "0");
 
   return (
-    <div className="shell">
+    <div className={`shell ${sidebarOpen ? "" : "is-sidebar-collapsed"}`}>
       <FloatingQR slug={__SLUG} />
       <DanmakuLayer items={room.danmaku} />
 
@@ -254,6 +259,20 @@ function App() {
           <button className="me-chip" onClick={() => setShowProfile(true)}>
             <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>
             <span className="me-name">{me.anonymous ? "Anonymous" : (me.name || "Unnamed")}</span>
+          </button>
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+            title={sidebarOpen ? "Hide queue panel" : "Show queue panel"}
+            aria-label="Toggle queue panel"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <line x1="15" y1="4" x2="15" y2="20" />
+              {sidebarOpen
+                ? <path d="M9 9l-2 3 2 3" />
+                : <path d="M7 9l2 3-2 3" />}
+            </svg>
           </button>
         </div>
       </header>

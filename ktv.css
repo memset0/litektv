@@ -1,5 +1,11 @@
 /* ktv.css — full styling for the KTV app */
 
+/* ── Hide all scrollbars (keep scroll behavior) ─────────── */
+/* The default white scrollbar breaks the neon aesthetic; users still get
+ * wheel/touch scrolling, just no visible track. */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* ── Layout shell ─────────────────────────────────────────── */
 .shell {
   position: relative;
@@ -58,6 +64,7 @@
   padding: 0 28px 28px;
   align-items: start;
   min-height: 0;
+  transition: grid-template-columns 0.32s ease, gap 0.32s ease;
 }
 
 .player-col {
@@ -71,6 +78,8 @@
   min-width: 0;
   position: sticky; top: 18px;
   max-height: calc(100vh - 36px);
+  overflow: hidden;
+  transition: opacity 0.28s ease, transform 0.28s ease;
 }
 
 /* ── Player screen ───────────────────────────────────────── */
@@ -374,6 +383,33 @@
   border-color: var(--neon-cyan);
   box-shadow: 0 0 0 1px var(--neon-cyan), 0 0 18px rgba(44, 245, 255, 0.45);
 }
+
+/* ── Sidebar toggle (topbar) ─────────────────────────────── */
+.sidebar-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.sidebar-toggle:hover { color: var(--neon-cyan); border-color: var(--neon-cyan); transform: translateY(-1px); }
+
+/* When the sidebar is collapsed the player gets the full row.
+ * grid-template-columns is animatable in modern browsers; fades the side
+ * panel out and shifts it slightly so the transition reads as a slide. */
+.shell.is-sidebar-collapsed .stage {
+  grid-template-columns: minmax(0, 1fr) 0fr;
+  gap: 0;
+}
+.shell.is-sidebar-collapsed .side-col {
+  opacity: 0;
+  transform: translateX(28px);
+  pointer-events: none;
+}
+
 .q-sub {
   display: flex; align-items: center; gap: 6px;
   font-size: 11.5px; color: var(--ink-dim);

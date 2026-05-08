@@ -574,6 +574,7 @@ export default function App() {
                             isFavorited={favOps.isFavorited(s)}
                             dragging={isDragging}
                             dropTarget={isDropTarget}
+                            disableTop={i === 0}
                           />
                         </div>
                       );

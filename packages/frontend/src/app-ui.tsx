@@ -452,6 +452,13 @@ interface QueueRowProps {
   isFavorited?: boolean;
   dragging?: boolean;
   dropTarget?: boolean;
+  /**
+   * Disable just the `top` action (independent of `isCurrent`). Used by
+   * the parent to grey-out the topmost pending row's top icon — it would
+   * be a no-op (the row is already at the top of the pending tail) and
+   * an unintentional click should not look identical to a meaningful one.
+   */
+  disableTop?: boolean;
 }
 
 export function QueueRow({
@@ -464,7 +471,9 @@ export function QueueRow({
   isFavorited,
   dragging,
   dropTarget,
+  disableTop,
 }: QueueRowProps) {
+  void idx; // Reserved for future use; parent already drives disableTop.
   const askDelete = () => {
     const ok = window.confirm(`Remove "${song.title}" from the queue?`);
     if (ok) onDelete(song.id);
@@ -490,17 +499,18 @@ export function QueueRow({
           {onToggleFavorite ? (
             <StarBtn filled={!!isFavorited} onClick={() => onToggleFavorite(song)} />
           ) : null}
-          {!isCurrent && (
-            <>
-              <IconBtn
-                glyph={Glyph.top}
-                title="Move to top"
-                onClick={() => onTop(song.id)}
-                disabled={idx === 0}
-              />
-              <IconBtn glyph={Glyph.trash} title="Remove" onClick={askDelete} />
-            </>
-          )}
+          <IconBtn
+            glyph={Glyph.top}
+            title={isCurrent ? "Already playing" : disableTop ? "Already at top" : "Move to top"}
+            onClick={() => onTop(song.id)}
+            disabled={isCurrent || !!disableTop}
+          />
+          <IconBtn
+            glyph={Glyph.trash}
+            title={isCurrent ? "Use ⏭ to skip" : "Remove"}
+            onClick={askDelete}
+            disabled={isCurrent}
+          />
         </>
       }
     />

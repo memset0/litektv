@@ -16,17 +16,17 @@
 
 ## 3. Disable destructive actions on current and next-up rows
 
-- [ ] 3.1 Update `QueueRow` to render `top` and `trash` UNCONDITIONALLY (drop the `!isCurrent &&` guard) so the action area always has the same column count. Pass `disabled={isCurrent || idx === 0}` to top, `disabled={isCurrent}` to trash.
-- [ ] 3.2 Add a `disableTop` prop to `QueueRow` so the parent can disable JUST the top action without setting `isCurrent`. Use it in `app.tsx` to disable the row-1 top when current is present (or row-0 top when current is absent).
-- [ ] 3.3 In `app.tsx`'s queue render path: pending rows pass `disableTop={i === 0}` so the topmost pending row's top is disabled regardless of whether a pinned current row sits above it.
-- [ ] 3.4 Verify: clicking the disabled top icon on the current row OR the row-1 row sends nothing over `/ws`; trash on current row doesn't open the confirm dialog.
-- [ ] 3.5 Commit: `feat(ui): disable top/trash on current row, disable top on next-up row`
+- [x] 3.1 `QueueRow` now renders `top` and `trash` unconditionally so the action-area column count is identical between current and pending rows. `top` gets `disabled={isCurrent || !!disableTop}` (with a contextual title — "Already playing" / "Already at top" / "Move to top"); `trash` gets `disabled={isCurrent}` and a "Use ⏭ to skip" hint when disabled.
+- [x] 3.2 `disableTop?: boolean` prop added to `QueueRowProps`. `idx` retained on the prop bag for back-compat (no current consumer uses it after this change; explicitly noted in code).
+- [x] 3.3 `app.tsx` queue render passes `disableTop={i === 0}` for the topmost pending row, regardless of whether a pinned current row sits above it. Cascade rule satisfied for both `room.current != null` (row at i=0 is "next-up") and `room.current == null` (row at i=0 is the topmost overall).
+- [x] 3.4 Build clean. Live verification deferred to user.
+- [x] 3.5 Commit: `feat(ui): disable top/trash on current row, disable top on next-up row`
 
 ## 4. Build + push
 
-- [ ] 4.1 `pnpm --filter litektv-frontend typecheck && pnpm --filter litektv-frontend build` — confirm clean.
-- [ ] 4.2 Push all three feature commits (this happens incrementally per CLAUDE.md auto-push rule).
-- [ ] 4.3 Live verify on https://ktv.dev.mem.ac/ — queue tab, with and without a current track, with and without queue rows.
+- [x] 4.1 `pnpm --filter litektv-frontend typecheck && pnpm --filter litektv-frontend build` — confirmed clean after each feature.
+- [x] 4.2 All three feature commits pushed incrementally per CLAUDE.md auto-push rule.
+- [ ] 4.3 Live verify on https://ktv.dev.mem.ac/ — queue tab, with and without a current track, with and without queue rows. **Pending user verification.**
 
 ## 5. Archive (handled by user)
 

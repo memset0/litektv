@@ -73,14 +73,6 @@
   max-height: calc(100vh - 36px);
 }
 
-/* phone layout */
-.shell.layout-phone .stage { grid-template-columns: 1fr; max-width: 460px; margin: 0 auto; }
-.shell.layout-phone .side-col { position: static; max-height: none; }
-
-/* tv layout = bigger player, smaller side */
-.shell.layout-tv .stage { grid-template-columns: minmax(0, 2.2fr) minmax(320px, 0.6fr); }
-.shell.layout-tv .brand-logo { font-size: 36px; }
-
 /* ── Player screen ───────────────────────────────────────── */
 .screen {
   position: relative;
@@ -859,36 +851,6 @@ body[data-density="compact"] .q-row { grid-template-columns: 64px 1fr auto; }
 }
 .hist-readd:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
 
-/* ── Layout switch (Tweaks) ──────────────────────────────── */
-.lay-switch {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-}
-.lay-pill {
-  flex: 1;
-  padding: 7px 12px;
-  background: transparent;
-  color: var(--ink-mute);
-  border: none;
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.lay-pill:hover { color: var(--ink); }
-.lay-pill.is-on {
-  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
-  color: #fff;
-  box-shadow: 0 0 12px rgba(255, 46, 166, 0.5);
-}
-
 /* ── Floating QR ─────────────────────────────────────────── */
 .fab-qr {
   position: fixed;
@@ -982,8 +944,6 @@ body[data-density="compact"] .q-row { grid-template-columns: 64px 1fr auto; }
   .ctl-vol { order: 6; flex-basis: 100%; }
   .ctl-vol-range { flex: 1; width: auto; }
   .dm-item { font-size: 18px; }
-  /* compact the layout switch so the topbar-right row can fit */
-  .lay-pill { padding: 7px 10px; font-size: 10px; letter-spacing: 0.1em; }
   /* keep a usable name length without pushing past the row */
   .me-name { max-width: 90px; }
   .users-strip { gap: 8px; padding: 6px 10px; }
@@ -1028,7 +988,6 @@ body[data-density="compact"] .q-row { grid-template-columns: 64px 1fr auto; }
 
 /* very narrow (older / smaller phones) */
 @media (max-width: 360px) {
-  .lay-pill { padding: 6px 8px; font-size: 9.5px; letter-spacing: 0.06em; }
   .room-slug { font-size: 11px; }
   .room-tag { font-size: 8.5px; letter-spacing: 0.15em; }
   .q-row { grid-template-columns: 48px 1fr auto; }

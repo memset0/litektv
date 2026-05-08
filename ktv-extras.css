@@ -1,32 +1,4 @@
-/* ktv-extras.css — fullscreen host, inner danmaku, layout switch, fs button, now-playing bar */
-
-.lay-switch {
-  display: inline-flex;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.lay-pill {
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--line);
-  color: var(--ink-mute);
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.lay-pill:last-child { border-right: 0; }
-.lay-pill:hover { color: var(--ink); background: rgba(255,255,255,0.04); }
-.lay-pill.is-on {
-  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
-  color: white;
-  box-shadow: inset 0 0 14px rgba(255,46,166,0.35);
-}
+/* ktv-extras.css — fullscreen host, inner danmaku, fs button, now-playing bar */
 
 .fs-host { position: relative; width: 100%; height: 100%; }
 .fs-host:fullscreen {

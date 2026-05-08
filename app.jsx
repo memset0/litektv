@@ -3,12 +3,6 @@
 const { useRoom: __useRoom, useMe: __useMe, useHeartbeat: __useHB, SLUG: __SLUG } = window.KTV;
 const __UI = window.KTV.UI;
 
-const LAYOUTS = [
-  { id: "split", label: "SPLIT", glyph: "▌▐" },
-  { id: "tv",    label: "TV",    glyph: "▣" },
-  { id: "phone", label: "PHONE", glyph: "▯" },
-];
-
 // ── Page-wide danmaku layer (visible when not fullscreen) ─────────
 function DanmakuLayer({ items }) {
   const [tracks, setTracks] = React.useState([]);
@@ -170,20 +164,6 @@ function HistoryList({ items, onReadd }) {
   );
 }
 
-// Layout segmented switcher (sits in topbar)
-function LayoutSwitch({ value, onChange }) {
-  return (
-    <div className="lay-switch">
-      {LAYOUTS.map((l) => (
-        <button key={l.id} className={`lay-pill ${value === l.id ? "is-on" : ""}`}
-          onClick={() => onChange(l.id)}>
-          {l.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function FloatingQR({ slug }) {
   const [open, setOpen] = React.useState(false);
   const url = window.location.href;
@@ -227,9 +207,6 @@ function App() {
     document.body.dataset.density = "comfy";
     document.body.dataset.font = "display";
   }, []);
-
-  const [layout, setLayout] = React.useState(() => localStorage.getItem("ktv:layout") || "split");
-  React.useEffect(() => { document.body.dataset.layout = layout; localStorage.setItem("ktv:layout", layout); }, [layout]);
 
   const [tab, setTab] = React.useState("queue");
   const [showProfile, setShowProfile] = React.useState(false);
@@ -313,7 +290,7 @@ function App() {
   const current = room.current;
 
   return (
-    <div className={`shell layout-${layout}`}>
+    <div className="shell">
       <FloatingQR slug={__SLUG} />
       <DanmakuLayer items={room.danmaku} />
 
@@ -323,7 +300,6 @@ function App() {
           <div className="brand-mono">// signal {String((playback.seq||0)%999).padStart(3,"0")} // room synced</div>
         </div>
         <div className="topbar-right">
-          <LayoutSwitch value={layout} onChange={setLayout} />
           <RoomBadge slug={__SLUG} />
           <button className="me-chip" onClick={() => setShowProfile(true)}>
             <span className="me-emoji">{me.anonymous ? "👤" : (me.emoji || "🎤")}</span>

@@ -9,8 +9,8 @@ Today the queue lives entirely inside one room, so a song someone enjoys vanishe
   - **BREAKING (storage):** parser output and any stored `Song`/favorite record SHALL drop unrecognized URL query params. Callers that relied on echoing the original URL must read `source`+`videoId`+`page` instead.
 - New **user accounts** capability: lightweight login (display name + emoji avatar, optional password / magic link) so the same favorites list can be reached from any browser. Anonymous users still get a stable per-device favorites list keyed by their existing `localStorage` `userId`; logging in merges device favorites into the account.
 - Queue intake (`queue.add` and `queue.add-from-favorite`) and favorites add SHALL accept a favorite reference (`{source, videoId, page?}`) directly, so re-queueing a starred song doesn't require re-parsing the original URL.
-- UI rework on the side panel: replace the existing **Queue** action button with a **`+`** button (paste/parse a new link) and add a sibling **catalog** button that opens the favorites drawer.
-- Favorites drawer supports search over title with **pinyin / pinyin-initials / fuzzy substring** matching so Chinese titles are reachable by typing `xzgn` for `小镇姑娘` etc.
+- UI rework on the side panel: replace the existing **Queue** action button with a **`+`** button (paste/parse a new link) and add a sibling **catalog** button that opens a favorites **modal** (centered popup; list ordered by `added_at` descending; search input pinned at the top; Esc / backdrop click closes).
+- Catalog search supports **pinyin / pinyin-initials / fuzzy substring** matching so Chinese titles are reachable by typing `xzgn` for `小镇姑娘` etc.
 - Bilibili multi-`p` page index continues to be preserved end-to-end (parser → favorite → queue add); we are not adding a new page picker yet but everything stays compatible for when we do.
 
 ## Capabilities

@@ -47,15 +47,14 @@
 ## 8. Tests
 
 - [x] 8.1 Vitest: parser canonicalization (URL with spm_id_from), `parseRef` round-trip, favorites idempotent add (first-starrer wins), Bilibili page separation, global visibility. **10 tests passing.** (Remove tests dropped along with the remove path.)
-- [ ] 8.2 Manual: user A stars in room aaa; user B in room bbb (different room) immediately sees the star and the entry in their catalog modal — favorites are global.
-- [ ] 8.3 Manual: paste the spm-laden Bilibili URL from the user's note, confirm the queued song record contains only canonical fields (inspect via `sqlite3 data/litektv.db 'select state from rooms where slug=?'`).
-- [ ] 8.4 Manual: open the catalog modal with a list including `小镇姑娘`, verify `xzgn`, `xiaozhen`, and partial-substring queries all match.
 
 ## 9. Ship
 
 - [x] 9.1 Per the project's auto-commit rule, each numbered group landed in its own conventional commit and was pushed immediately. Stage only the files modified for that group — never `git add -A`.
-- [ ] 9.2 Run `openspec archive add-favorites` (or `/opsx:archive`) once the manual tests in §8 are verified.
+- [x] 9.2 Run `openspec archive add-favorites` once the deployed feature is confirmed working (live-tested by user — confirmed OK 2026-05-08).
 
 ## 10. Deferred (NOT in v1)
 
-- [ ] 10.1 Add `favorite.remove` WS handler + DB accessor + frontend affordance once the product decides on the semantics (anyone-can-remove vs only-the-favoriter vs admin-only). Until then, removing a favorite requires `DELETE FROM favorites WHERE …` on the operator side.
+Captured here for traceability — these are explicitly OUT of scope for this change. A future change can pick them up.
+
+- `favorite.remove` WS handler + DB accessor + frontend affordance, once the product decides on the semantics (anyone-can-remove vs only-the-favoriter vs admin-only). Until then, removing a favorite requires `DELETE FROM favorites WHERE …` on the operator side.

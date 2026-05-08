@@ -24,8 +24,9 @@ function NeonButton({ children, onClick, accent = "pink", size = "md", title, di
     </button>
   );
 }
-function IconBtn({ glyph, title, onClick, color, disabled }) {
-  return <button title={title} disabled={disabled} onClick={onClick} className={`icon-btn icon-${color || "ink"}`}>{glyph}</button>;
+function IconBtn({ glyph, title, onClick, color, disabled, className }) {
+  const cls = ["icon-btn", color ? `icon-${color}` : "icon-ink", className].filter(Boolean).join(" ");
+  return <button title={title} disabled={disabled} onClick={onClick} className={cls}>{glyph}</button>;
 }
 
 const Glyph = {
@@ -46,6 +47,9 @@ const Glyph = {
   mute: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9v6h4l5 4V5L8 9zM17 9l5 6M22 9l-5 6"/></svg>,
   send: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12L21 4l-3 17-7-5-5 2z"/></svg>,
   link: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>,
+  replay: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 8 16 8"/></svg>,
+  check: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 12 10 18 20 6"/></svg>,
+  plusSm: <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
 };
 
 function AddSongInput({ onAdd, me, onOpenCatalog }) {

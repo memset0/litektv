@@ -35,16 +35,16 @@ The `actions` slot SHALL be **opaque to `SongCard`** — `SongCard` lays it out 
 - **THEN** it SHALL pass the `+ 加入` button as `actions` children
 - **AND** in all three cases `SongCard` SHALL render its action area with identical alignment, gap, and right-edge padding regardless of what's inside
 
-#### Scenario: Cover slot is null on Queue and Catalog rows
+#### Scenario: Cover slot is null on Queue rows; History and Catalog render a CoverThumb
 
-- **WHEN** Queue or Catalog renders a row
+- **WHEN** Queue renders a row
 - **THEN** it SHALL pass `cover={null}` (or omit the prop) and `SongCard` SHALL render the row without a left cover column
-- **AND WHEN** History renders a row
+- **AND WHEN** History or Catalog renders a row
 - **THEN** it SHALL pass `cover={<CoverThumb source={s.source} videoId={s.videoId} />}` and `SongCard` SHALL render that as a fixed-width left column
 
 ### Requirement: Cover thumbnail with generic placeholder fallback
 
-History rows SHALL render the song's cover thumbnail in the cover slot. The frontend SHALL provide a `<CoverThumb>` component that:
+History rows AND Catalog rows SHALL render the song's cover thumbnail in the cover slot. The frontend SHALL provide a `<CoverThumb>` component that:
 
 - Renders an `<img>` whose `src` is the cover URL for the given `(source, videoId)` (e.g. via the existing `/api/thumb?source=...&id=...` route, or a direct YouTube `i.ytimg.com` URL for `yt`).
 - On image load failure (`onError`), or when no cover URL is available for the source, SHALL render a **generic placeholder** instead — a quiet card-toned tile sized to the cover slot, with NO numerical index, NO row number, and NO surface-identifying badge. The placeholder SHALL have the same dimensions as a successfully-loaded cover so the row's layout does not shift.
@@ -131,27 +131,57 @@ The brighter / larger Queue typography (`font-size: 13.5px`, `color: var(--ink)`
 - **WHEN** the migration to `SongCard` completes
 - **THEN** a Queue row's title SHALL render at 13px / `--ink-dim` / 600 weight (the History baseline), NOT at 13.5px / `--ink` (the previous Queue values)
 
-### Requirement: Common action buttons share the trash button's base shape
+### Requirement: Every row button is an icon-only `IconBtn`
 
-The three action buttons that may appear inside a `SongCard` actions slot — **add to favorite (star)**, **stick to top**, and **delete (trash)** — SHALL all render with the same base shape: the existing `.icon-btn` styling used by the delete button today (30×30 square box, 8px border-radius, line-colored 1px border, transparent background, `var(--ink-dim)` glyph colour, neutral hover).
+Every interactive button that appears inside a `SongCard` actions slot SHALL render through the shared `IconBtn` chrome (30×30 square box, 8px border-radius, line-colored 1px border, transparent background, `var(--ink-dim)` glyph colour). This includes:
 
-Specifically:
+- **Add to favorite (star)** — outline glyph empty, filled glyph when favorited.
+- **Stick to top** — up-arrow-with-cap glyph.
+- **Delete (trash)** — trash glyph.
+- **History's replay** — curved-arrow / refresh glyph.
+- **Catalog's "+ to queue"** — plus glyph.
 
-- The star button SHALL render through `IconBtn` rather than the current bespoke `StarBtn` markup. The previous 26×26 unbordered transparent treatment SHALL be removed; the filled and empty states SHALL share the `.icon-btn` chrome and only the inner SVG glyph differs (filled vs outline star).
-- The per-tint hover variants (`icon-pink`, `icon-cyan`) SHALL be retired in favour of a single neutral hover, so the three buttons no longer signal intent through colour. Any caller that needs a destructive emphasis SHALL rely on `window.confirm(...)` (already required for delete) rather than colour.
-- Sizing remains 30×30 at desktop densities and the existing responsive shrinks (28×28 / 26×26) continue to apply uniformly to all three buttons.
+None of these buttons SHALL display a text label. The previous text-bearing pills (`.cat-add` reading "+ 加入" with a display font, `.hist-readd` reading "+ REPLAY" in plain text) SHALL be removed; their actions move to icon-only `IconBtn` renderings. The bespoke `StarBtn` markup (smaller, transparent, yellow when filled) is also removed; the star renders inside `IconBtn` like the others.
 
-#### Scenario: Star, top, and trash render as the same chrome
+The per-tint hover variants on row buttons (`icon-pink`, `icon-cyan`) SHALL be retired — every row button uses the unified hover frame from the next requirement instead. The `icon-pink` / `icon-cyan` rules survive only for the now-playing bar's transport controls (prev/next/shuffle), which aren't on song-card rows.
 
-- **WHEN** the user inspects a Queue row's action bar
-- **THEN** all three buttons SHALL share the same outer dimensions, border, border-radius, default colour, and hover treatment
-- **AND** the only visual difference between buttons SHALL be the inner SVG glyph
+`IconBtn` SHALL accept an optional `className` prop so callers can compose state classes onto the chrome (e.g. the catalog's `.is-flash` post-add confirmation tint) without defining their own button.
 
-#### Scenario: Star button does not have its old unbordered look
+#### Scenario: All row actions are icons of identical chrome
 
-- **WHEN** the migration completes
-- **THEN** no DOM element SHALL match a `.star-btn` rule that gives it a transparent / unbordered / 26×26 appearance
-- **AND** every star icon in the app SHALL render inside an `.icon-btn` container
+- **WHEN** the user inspects a Queue row, a History row, or a Catalog row
+- **THEN** every button in the actions slot SHALL be a 30×30 `.icon-btn` element with no inner text — only an inline SVG glyph
+- **AND** every such button SHALL share the same outer dimensions, border, border-radius, default glyph colour, and hover treatment
+- **AND** the only visual difference between buttons SHALL be the inner SVG glyph (and, on the star, whether the glyph is filled or outline)
+
+#### Scenario: Catalog's add-to-queue action is a plus icon, not text
+
+- **WHEN** the user views the catalog modal
+- **THEN** each row's add action SHALL render as an `.icon-btn` containing a `+` glyph (no text label, no "加入" string)
+- **AND** after a successful add the icon SHALL briefly swap to a check (`✓`) glyph and the button SHALL pick up the `.icon-btn.is-flash` cyan-tint state for the duration of the flash
+- **AND** the button SHALL revert to the `+` glyph and default state once the flash window expires
+
+#### Scenario: History's replay action is a curved-arrow icon, not text
+
+- **WHEN** the user views the History tab
+- **THEN** each row's replay action SHALL render as an `.icon-btn` containing a curved-arrow / refresh glyph (no text label, no "REPLAY" string)
+
+### Requirement: Unified pink-gradient hover frame on row buttons
+
+Every `.icon-btn` instance that appears on a song-card surface, plus the side-panel `+` and 📚 (`.side-action`) controls, SHALL share a single hover treatment: a 1.5px **pink gradient ring** (light → deep, 135deg) around the button's perimeter, plus a soft outer glow. The frame SHALL be rendered via an `::after` pseudo-element absolutely positioned at `inset: -1px` with `padding: 1.5px` and a `linear-gradient` background, clipped via `mask-composite: exclude` so only the 1.5px-thick ring is visible.
+
+The frame SHALL NOT recolour the button's interior — the inner SVG glyph and any inner background SHALL remain whatever colour the button had before hover. Each target button SHALL set `position: relative` so the absolute pseudo anchors correctly.
+
+#### Scenario: Hovering any row button paints the same pink-gradient ring
+
+- **WHEN** the user hovers a star, top, trash, replay, or catalog `+` button on any song-card surface
+- **THEN** the button SHALL render a 1.5px pink-gradient ring around its perimeter and a soft outer glow
+- **AND** the inner SVG glyph colour SHALL be unchanged from its non-hover state (the frame is outside-only)
+
+#### Scenario: Side-panel + and 📚 share the same frame
+
+- **WHEN** the user hovers the `+` (add link) or 📚 (catalog) buttons in the side panel
+- **THEN** those buttons SHALL render the same pink-gradient hover ring as the row buttons
 
 ### Requirement: Filled star uses ink, not yellow
 
@@ -179,7 +209,7 @@ All styling for the unified row SHALL live under a single CSS namespace prefixed
 
 ### Requirement: Uniform row dimensions
 
-Every Queue row, History row, and Catalog row SHALL render with a fixed minimum height that comfortably fits a 2-line clamped title plus a 1-line meta row. The title and meta SHALL be vertically centered inside the row regardless of how many lines the title actually takes. Because all three surfaces render through `SongCard`, this constraint SHALL be expressed exactly once (in `.song-card*` CSS) rather than being duplicated per surface.
+Every Queue row, History row, and Catalog row SHALL render at a uniform fixed minimum height (`min-height: 72px`) that comfortably fits a 2-line clamped title plus a 1-line meta row, regardless of whether the row carries a 48px cover image. The title and meta SHALL be vertically centered inside the row regardless of how many lines the title actually takes. Because all three surfaces render through `SongCard`, this constraint SHALL be expressed exactly once (in `.song-card*` CSS) rather than being duplicated per surface, and SHALL produce no overflow on any surface.
 
 #### Scenario: Short title and long title render at the same height
 
@@ -193,16 +223,21 @@ Every Queue row, History row, and Catalog row SHALL render with a fixed minimum 
 
 ### Requirement: Thumbnails on song-card surfaces
 
-History rows SHALL render the song's cover thumbnail in the cover slot, with a generic placeholder fallback when the cover URL fails to load or no cover URL is known. Queue and Catalog rows SHALL render no cover (their cover slot is null). The `thumb` field on song records is a hint; `<CoverThumb>` MAY use it directly, or use the canonical `/api/thumb?source=...&id=...` route, or compute the YouTube `i.ytimg.com/vi/<id>/hqdefault.jpg` URL — call site choice. The placeholder SHALL be image-load-failure-safe: a Bilibili `i*.hdslb.com` URL the browser refuses to hot-link SHALL trigger the placeholder rather than a broken-image artifact.
+History rows AND Catalog rows SHALL render the song's cover thumbnail in the cover slot, with a generic placeholder fallback when the cover URL fails to load or no cover URL is known. Queue rows SHALL render no cover (their cover slot is null). The `thumb` field on song records is a hint; `<CoverThumb>` MAY use it directly, or use the canonical `/api/thumb?source=...&id=...` route, or compute the YouTube `i.ytimg.com/vi/<id>/hqdefault.jpg` URL — call site choice. The placeholder SHALL be image-load-failure-safe: a Bilibili `i*.hdslb.com` URL the browser refuses to hot-link SHALL trigger the placeholder rather than a broken-image artifact.
 
 #### Scenario: Bilibili row whose hot-link is blocked
 
-- **WHEN** a History row's cover URL is a Bilibili `http://i*.hdslb.com` URL that the browser refuses to load
-- **THEN** the History row SHALL render the generic placeholder tile in the cover slot, NOT a broken-image icon
+- **WHEN** a History or Catalog row's cover URL is a Bilibili `http://i*.hdslb.com` URL that the browser refuses to load
+- **THEN** the row SHALL render the generic placeholder tile in the cover slot, NOT a broken-image icon
 - **AND** the row's layout SHALL be unchanged (same height and column widths as a successful load)
 
-#### Scenario: Queue and Catalog rows have no cover slot
+#### Scenario: Queue rows have no cover slot
 
-- **WHEN** the user views Queue or Catalog
-- **THEN** no row SHALL render a cover image or cover placeholder
-- **AND** rows on those surfaces SHALL render with the body column starting at the row's left padding (no cover column, no left gutter)
+- **WHEN** the user views Queue
+- **THEN** no Queue row SHALL render a cover image or cover placeholder
+- **AND** Queue rows SHALL render with the body column starting at the row's left padding (no cover column, no left gutter)
+
+#### Scenario: Catalog row layout matches History
+
+- **WHEN** the user opens the catalog modal
+- **THEN** each row SHALL render with a 48px cover column on the left, the title + meta in the middle, and the action button(s) anchored to the right edge — the same layout as a History row

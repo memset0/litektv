@@ -29,14 +29,14 @@ Clicking the trash icon SHALL invoke `window.confirm(...)` with the song title b
 
 ### Requirement: No thumbnails in queue/history rows
 
-Queue rows and Catalog rows SHALL NOT render a cover thumbnail. History rows SHALL render the song's cover thumbnail in the `SongCard` cover slot, with a generic placeholder fallback when the cover URL fails to load. The `thumb` field on song records may be used as the source URL on History rows; see the song-card capability for the full cover-with-fallback contract.
+Queue rows SHALL NOT render a cover thumbnail (queue's `cover` slot is null). History rows AND Catalog rows SHALL render the song's cover thumbnail in the `SongCard` cover slot, with a generic placeholder fallback when the cover URL fails to load. The `thumb` field on song records may be used as the source URL on History/Catalog rows; see the song-card capability for the full cover-with-fallback contract.
 
 #### Scenario: Queue row with a thumb in the song record
 
 - **WHEN** a queue row's underlying song has a non-null `thumb` URL
 - **THEN** the queue row SHALL render only the title + meta + actions, with NO cover image (queue's `cover` slot is null by design)
 
-#### Scenario: History row whose Bilibili cover hot-link is blocked
+#### Scenario: History/Catalog row whose Bilibili cover hot-link is blocked
 
-- **WHEN** a history row's cover URL is a Bilibili `http://i*.hdslb.com` URL that the browser refuses to load
+- **WHEN** a History or Catalog row's cover URL is a Bilibili `http://i*.hdslb.com` URL that the browser refuses to load
 - **THEN** the row SHALL render the generic placeholder tile in the cover slot, with no broken-image artifact, and no numerical index in its place

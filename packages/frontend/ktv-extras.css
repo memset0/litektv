@@ -191,6 +191,7 @@ body[data-font="display"] {
 
 /* ── side-panel + and 📚 buttons (replace the old QUEUE + label) ───────── */
 .side-action {
+  position: relative;
   display: inline-grid; place-items: center;
   width: 36px; height: 36px;
   border-radius: 10px;
@@ -198,11 +199,10 @@ body[data-font="display"] {
   color: var(--ink);
   border: 1px solid var(--line);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  transition: transform 0.12s ease;
 }
 .side-action:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px var(--line-strong), 0 6px 18px rgba(255, 46, 166, 0.25);
 }
 .side-action:disabled { opacity: 0.4; cursor: not-allowed; }
 .side-action.add-plus { color: var(--neon-pink); }
@@ -244,23 +244,45 @@ body[data-font="display"] {
   padding: 0 var(--pad) 12px;
   display: flex; flex-direction: column; gap: 6px;
 }
-/* Catalog rows now render through .song-card; the catalog-specific
- * "+ 加入" pill keeps its own styling below. */
-.cat-add {
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 46, 166, 0.12);
-  color: var(--neon-pink);
-  padding: 6px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.12s, transform 0.12s;
+/* Catalog "+ 加入" is now an .icon-btn — see .icon-btn.is-flash below for
+ * the post-click confirmation tint. */
+
+/* ── Unified pink-gradient hover frame ──────────────────────────────────
+ * Applied to every interactive button on song-card surfaces and the
+ * side-panel + / 📚 controls. Renders a 1.5px pink-gradient ring (light
+ * → deep, 135deg) on hover, plus a soft outer glow. The frame sits in an
+ * ::after pseudo and uses mask-composite so it never bleeds into the
+ * button's interior — each button keeps its own glyph / fill colour.
+ * Targets: .icon-btn, .hist-readd, .cat-add, .side-action.
+ */
+.icon-btn:hover:not(:disabled)::after,
+.hist-readd:hover::after,
+.cat-add:hover::after,
+.side-action:hover:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 46, 166, 0.35) 0%,
+    rgba(255, 46, 166, 0.95) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+          mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
 }
-.cat-add:hover { background: rgba(255, 46, 166, 0.22); }
-.cat-add.is-flash {
-  background: rgba(44, 245, 255, 0.22);
-  color: var(--neon-cyan);
-  border-color: var(--neon-cyan);
+.icon-btn:hover:not(:disabled),
+.hist-readd:hover,
+.cat-add:hover,
+.side-action:hover:not(:disabled) {
+  box-shadow: 0 0 14px rgba(255, 46, 166, 0.32);
 }
+

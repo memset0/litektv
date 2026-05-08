@@ -162,7 +162,7 @@ function HistoryList({ items, onReadd, onToggleFavorite, isFavorited }) {
                 {onToggleFavorite ? (
                   <__UI.StarBtn filled={isFavorited(s)} onClick={() => onToggleFavorite(s)} />
                 ) : null}
-                <button className="hist-readd" title="Sing again" onClick={() => onReadd(s)}>+ REPLAY</button>
+                <__UI.IconBtn glyph={__UI.Glyph.replay} title="Sing again" onClick={() => onReadd(s)} />
               </>
             }
           />

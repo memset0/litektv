@@ -46,6 +46,15 @@
 - [ ] 8.3 Confirm star/top/trash buttons in Queue all share the same chrome; confirm the filled star renders white (not yellow).
 - [ ] 8.4 Confirm drag-to-reorder still works in Queue and that the source/target visuals fire correctly.
 
+## 8B. Polish (post-initial-landing review)
+
+- [x] 8B.1 Catalog rows render `<CoverThumb>` (originally null per the initial design; user reviewed and asked for covers there too — strongest visual cue for spotting a starred song).
+- [x] 8B.2 `.song-card-body { flex: 1 }` so when the row is in flex mode (no cover) the actions slot anchors to the right edge instead of trailing the body content.
+- [x] 8B.3 `.song-card-time` drops its `font-family: var(--font-mono)` + `font-size: 10.5px` overrides and inherits the sub-line baseline (matches the username's font, History style).
+- [x] 8B.4 Catalog "+ 加入" pill and History "+ REPLAY" chip become icon-only `IconBtn`s (Glyph.plusSm and Glyph.replay respectively). The bespoke `.cat-add` and `.hist-readd` CSS rules are removed; `IconBtn` gains an optional `className` prop so the catalog can flash via `.icon-btn.is-flash` after a successful add.
+- [x] 8B.5 Unified pink-gradient hover frame on `.icon-btn` and `.side-action` via `::after` + `mask-composite: exclude`. Frame-only — no inner colour change. Per-tint `icon-pink` / `icon-cyan` survive only on transport-bar buttons.
+- [x] 8B.6 `.song-card { min-height: 72px }` so 2-line titles + 48px cover never overflow and rows are uniform height across surfaces.
+
 ## 9. Ship
 
 - [x] 9.1 Per the project's auto-commit rule, commit each numbered group as it lands (`feat(ui): add SongCard + CoverThumb primitives`, `feat(ui): migrate catalog to SongCard`, `feat(ui): migrate history to SongCard with cover`, `feat(ui): migrate queue to SongCard`, `chore(ui): remove legacy q-row/hist-row/cat-row CSS`) and push immediately. Stage files explicitly by path — never `git add -A`.

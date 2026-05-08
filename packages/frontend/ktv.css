@@ -379,7 +379,11 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 10px;
-  min-height: 64px;
+  /* Tall enough to comfortably fit a 2-line clamped title + 1-line meta
+   * (plus the 48px cover when present) without overflow. All surfaces
+   * therefore render at uniform height regardless of title length or
+   * cover presence — matches History's intended look. */
+  min-height: 72px;
   transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
   min-width: 0;
 }
@@ -420,6 +424,10 @@
 }
 
 .song-card-body {
+  /* flex:1 so when the row is in flex mode (no cover) the body grows
+   * and pushes the actions slot to the right edge. In grid mode (with
+   * cover) the 1fr column achieves the same; the property is harmless. */
+  flex: 1;
   min-width: 0;
   display: flex; flex-direction: column;
   justify-content: center;
@@ -447,7 +455,7 @@
 .song-card-by-emoji { font-size: 12px; }
 .song-card-by-name { color: var(--ink-mute); }
 .song-card-dot { color: var(--ink-mute); }
-.song-card-time { color: var(--ink-mute); font-family: var(--font-mono); font-size: 10.5px; }
+.song-card-time { color: var(--ink-mute); }
 .song-card-now {
   margin-left: auto;
   color: var(--neon-pink); font-weight: 700;
@@ -458,6 +466,7 @@
 
 /* ── Icon button ─────────────────────────────────────────── */
 .icon-btn {
+  position: relative;
   width: 30px; height: 30px;
   border-radius: 8px;
   background: transparent;
@@ -468,9 +477,7 @@
   transition: all 0.15s;
 }
 .icon-btn:hover:not(:disabled) {
-  background: rgba(164, 92, 255, 0.15);
   color: var(--ink);
-  border-color: var(--line-strong);
 }
 .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 /* Filled-star variant: glyph rendered in --ink (white) — favorited rows
@@ -883,16 +890,7 @@
 .hist-list {
   display: flex; flex-direction: column; gap: 6px;
 }
-.hist-readd {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--ink-dim);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  cursor: pointer;
-}
-.hist-readd:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+/* History "+ REPLAY" is now an .icon-btn — no per-button CSS needed. */
 
 /* ── Floating QR ─────────────────────────────────────────── */
 .fab-qr {

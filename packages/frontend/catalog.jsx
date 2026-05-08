@@ -65,12 +65,13 @@
                   <__UI.SongCard
                     key={key}
                     songKey={key}
-                    cover={null}
+                    cover={<__UI.CoverThumb source={f.source} videoId={f.videoId} />}
                     title={f.title}
                     meta={meta}
                     actions={
-                      <button
-                        className={`cat-add ${recentlyAdded[key] ? "is-flash" : ""}`}
+                      <__UI.IconBtn
+                        glyph={recentlyAdded[key] ? __UI.Glyph.check : __UI.Glyph.plusSm}
+                        title={recentlyAdded[key] ? "已加入队列" : "加入队列"}
                         onClick={() => {
                           onAddRef({
                             source: f.source,
@@ -79,10 +80,8 @@
                           });
                           flashAdded(key);
                         }}
-                        title="加入队列"
-                      >
-                        {recentlyAdded[key] ? "✓ 已加" : "+ 加入"}
-                      </button>
+                        className={recentlyAdded[key] ? "is-flash" : null}
+                      />
                     }
                   />
                 );

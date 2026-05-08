@@ -109,16 +109,55 @@ A new `<CoverThumb source videoId />` component lives next to `SongCard` and ren
 
 On `<img onError>` (load failure, CORS block, 4xx, etc.), or when no URL is computable, `<CoverThumb>` renders a **generic placeholder tile** — a dimmed card-toned square the same size as a successful image, with no inner text/number/badge. The user explicitly rejected the previous "show row number as fallback" approach: row indices aren't useful information, and the placeholder should be visually quiet rather than informative.
 
-Only History uses `<CoverThumb>` in v1. Queue and Catalog leave the cover slot null. We could light up Catalog covers later as a free addition.
+**History AND Catalog both use `<CoverThumb>`.** Originally only History was wired up; the user reviewed and asked for covers in the favorites modal too — they're the strongest visual cue for spotting a starred song at a glance. Queue still passes `cover={null}` (no need; the queue is local to one room and rows are short-lived).
 
-### Decision: Action buttons unified to `IconBtn` chrome
+### Decision: Every row button is an `IconBtn` — no text labels
 
-The three action icons that may appear inside a SongCard's actions slot — star (favorite), top (move-to-top), trash (delete) — all render through the existing `IconBtn` component (`.icon-btn` class: 30×30 square, line-bordered, `--ink-dim` glyph, neutral hover). The bespoke `StarBtn` (smaller, transparent, yellow when filled) is removed.
+Every button that appears inside a SongCard's actions slot — star (favorite), top (move-to-top), trash (delete), History's replay, Catalog's "+ to queue" — renders through the existing `IconBtn` component (`.icon-btn` class: 30×30 square, line-bordered, `--ink-dim` glyph). The bespoke `StarBtn` (smaller, transparent, yellow when filled), the `.cat-add` pill ("+ 加入" with letter-spaced display font), and the `.hist-readd` chip ("+ REPLAY") are all removed in favour of icon-only IconBtn renderings.
 
-- **Filled star uses white**, not yellow. Implementation: replace the previous `text-shadow`-glowy yellow rule with a simple `color: var(--ink)` rule on the filled-star variant. The `IconBtn` chrome around it is identical to the empty-star variant — only the inner SVG glyph changes.
-- **Per-tint hover variants are retired.** `icon-pink` / `icon-cyan` were used to colour-code top vs trash; the user wants visual uniformity, so we drop the variants and let the default neutral hover apply to all three. Destructive intent for delete continues to be carried by the existing `window.confirm(...)` dialog, not by the button colour.
+- Catalog: a `+` icon (`Glyph.plusSm`). On a successful add the icon swaps to a check (`Glyph.check`) and the button picks up the `.icon-btn.is-flash` cyan tint for ~1.3s before reverting.
+- History: a curved-arrow replay icon (`Glyph.replay`).
+- Star: outline glyph empty, filled glyph when starred. The filled glyph renders in `var(--ink)` (white) — not yellow.
 
-**Why this matters for the unification:** with the bespoke `StarBtn` markup gone, the actions slot becomes a uniformly-shaped row of bordered icon squares regardless of which surface owns it. The action *set* still differs per surface (queue has 3, history has 2, catalog has 1), but each individual button is visually identical to the others.
+**Why no text:** the user explicitly asked for icon-only buttons. Text labels were inconsistent across surfaces ("+ 加入" vs "+ REPLAY") and visually competed with the title above. Icons read at a glance and let the action area shrink to a uniform 30×30 grid.
+
+`IconBtn` is extended with an optional `className` prop so callers (Catalog flash) can compose state classes onto the chrome without defining their own button.
+
+### Decision: Unified pink-gradient hover frame
+
+Every interactive button on a song-card surface — `.icon-btn`, plus the side-panel `+` and 📚 (`.side-action`) — renders a unified hover treatment: a **1.5px pink gradient ring** (light → deep, 135deg) around the button's perimeter, plus a soft outer glow. The frame is rendered via an `::after` pseudo-element absolutely positioned at `inset: -1px` with `padding: 1.5px`, painted with a `linear-gradient` background and clipped via `mask-composite: exclude` so only the 1.5px-thick ring is visible — the button's interior is untouched.
+
+Implementation:
+
+```css
+.icon-btn:hover:not(:disabled)::after,
+.side-action:hover:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg,
+    rgba(255, 46, 166, 0.35), rgba(255, 46, 166, 0.95));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+```
+
+Each target button gets `position: relative` so the absolute pseudo anchors correctly, and inherits its parent's `border-radius` so the ring tracks rounded corners.
+
+**Why frame-only, no inner colour change:** the user asked specifically for the hover effect to colour only the outer edge — the inner glyph keeps its existing colour (e.g. trash button's glyph stays neutral `--ink-dim`, the filled star stays `--ink`). This is exactly what the mask-composite ring achieves.
+
+**Per-tint hover variants** (`icon-pink` / `icon-cyan`) survive only on the now-playing bar's transport buttons (prev/next/shuffle), which aren't on song-card rows. Row buttons get the unified pink frame regardless of the previous tint.
+
+### Decision: Uniform row min-height of 72px
+
+`min-height: 72px` on `.song-card`. With 10px top/bottom padding (= 20px), the inner content area is 52px — enough for a 2-line clamped title (2×17.55px = 35.1px) + 2px gap + 1-line meta (~13px) = ~50px, with a hair of breathing room. The 48px cover (when present) sits inside the same 52px content area without forcing expansion.
+
+**Why uniform:** the user explicitly asked that all surfaces match History's height with no overflow. Without a min-height the Queue (no cover) would render shorter than History/Catalog (with covers); with this min-height all three surfaces render at exactly 72px regardless of cover presence or title length.
 
 ### Decision: CSS namespace `.song-card`
 

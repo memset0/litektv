@@ -64,5 +64,5 @@
 
 ## 10. Ship
 
-- [ ] 10.1 Per the project's auto-commit rule, commit each numbered group as it lands (e.g. `feat(backend): add favorites + accounts schema`, `feat(parser): canonicalize URLs and accept refs`, `feat(ws): favorites + auth handlers`, `feat(frontend): catalog modal + star toggles`) and push immediately. Stage only the files modified for that group — never `git add -A`.
+- [x] 10.1 Per the project's auto-commit rule, commit each numbered group as it lands (e.g. `feat(backend): add favorites + accounts schema`, `feat(parser): canonicalize URLs and accept refs`, `feat(ws): favorites + auth handlers`, `feat(frontend): catalog modal + star toggles`) and push immediately. Stage only the files modified for that group — never `git add -A`.
 - [ ] 10.2 Run `openspec archive add-favorites-and-accounts` (or `/opsx:archive`) once the apply phase is complete and verified.

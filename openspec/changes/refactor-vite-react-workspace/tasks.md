@@ -15,34 +15,32 @@
 
 ## 2. Frontend package + Vite scaffold
 
-- [ ] 2.1 Create `packages/frontend/package.json` with: `name: "litektv-frontend"`, `private: true`, `type: "module"`, scripts `dev` / `build` / `typecheck`, deps `react@^18.3` / `react-dom@^18.3` / `pinyin-pro@^3.27`, devDeps `vite@^5` / `@vitejs/plugin-react@^4` / `typescript@^5.7` / `@types/react@^18` / `@types/react-dom@^18`
-- [ ] 2.2 Create `packages/frontend/tsconfig.json` per design D4 (strict, jsx react-jsx, ESNext modules, Bundler resolution, paths `@litektv/types` → `../backend/src/types.ts`, noEmit)
-- [ ] 2.3 Create `packages/frontend/vite.config.ts` with `@vitejs/plugin-react`, `root: __dirname`, `build.outDir: "dist"`, `server.port: 5173` (only used for stand-alone vite dev — middleware mode bypasses it)
-- [ ] 2.4 Create `packages/frontend/src/` directory; create `packages/frontend/src/styles/` and move `ktv.css` + `ktv-extras.css` into it (`git mv` to preserve history)
-- [ ] 2.5 Re-run `pnpm install` at root; confirm `packages/frontend/node_modules` symlinks resolve
+- [x] 2.1 Created `packages/frontend/package.json` (litektv-frontend) with React 18.3 / pinyin-pro / vite + plugin-react / typescript dev deps.
+- [x] 2.2 Created `packages/frontend/tsconfig.json`: strict, react-jsx, ESNext + Bundler, `@litektv/types` path alias, noEmit.
+- [x] 2.3 Created `packages/frontend/vite.config.ts` (root: __dirname, outDir dist, plugin-react).
+- [x] 2.4 Created `packages/frontend/src/` and `src/styles/`; moved both CSS files via `git mv`.
+- [x] 2.5 Re-ran `pnpm install` at root; symlinks for react / vite / pinyin-pro resolve under `packages/frontend/node_modules/`.
 
 ## 3. Frontend entry HTML migration
 
-- [ ] 3.1 Create `packages/frontend/index.html` from `KTV.html`, dropping the `<script src="https://unpkg.com/...">` tags for React, ReactDOM, `@babel/standalone`, `pinyin-pro`, dropping the seven `<script type="text/babel" src="...">` lines, and adding a single `<script type="module" src="/src/main.tsx"></script>` before `</body>`. Keep the `fonts.googleapis.com` `<link>` tags. Keep the existing `<style id="ktv-base">` block AS-IS for now (refactoring CSS is out of scope).
-- [ ] 3.2 Update the `<title>` if needed (no — leave as-is; `app.tsx` overwrites it on mount)
-- [ ] 3.3 `git rm packages/frontend/KTV.html` once `index.html` is committed and verified
-- [ ] 3.4 Open `packages/frontend/index.html` in a quick `python -m http.server` from `packages/frontend/` to confirm the HTML parses and the font preconnect/links don't 404 (CSS will be missing — that's expected before main.tsx exists)
+- [x] 3.1 Wrote `packages/frontend/index.html` from KTV.html, dropping all unpkg + babel-standalone + pinyin-pro CDN scripts and the seven `<script type="text/babel">` loaders. Added single `<script type="module" src="/src/main.tsx"></script>` and kept the fonts.googleapis preconnects + `<style id="ktv-base">` theme tokens.
+- [x] 3.2 Title left as-is (`app.tsx` overwrites on mount per app-shell spec).
+- [x] 3.3 `git rm packages/frontend/KTV.html` — `index.html` is the new entry.
+- [x] 3.4 Skipped python http.server smoke; full `pnpm dev` end-to-end check happens in §6.
 
 ## 4. Frontend module conversion (.jsx → .tsx, drop window.KTV)
 
-Per design D3, convert each file. After every file, run `pnpm --filter litektv-frontend typecheck` to surface incremental errors.
-
-- [ ] 4.1 Move `state.jsx` → `src/state.tsx`. Drop the `(function () { ... })()` wrapper. Replace `Object.assign(window.KTV ??= {}, { useRoom, useMe, useFavorites, SLUG, randomSlug, ... })` with `export { useRoom, useMe, useFavorites, SLUG, randomSlug }`. Update `RESERVED_PATHS` per design D3 (drop legacy filenames, add `index.html` and `assets`). Type the WS message handlers using imports from `@litektv/types`.
-- [ ] 4.2 Move `urlparse.jsx` → `src/urlparse.ts` (no JSX in this file — pure helpers). Replace `window.KTV.urlparse = ...` with named exports.
-- [ ] 4.3 Move `pinyin-search.jsx` → `src/pinyin-search.ts`. Import `pinyin` from `pinyin-pro` (npm) instead of relying on `window.pinyinPro`.
-- [ ] 4.4 Move `app-ui.jsx` → `src/app-ui.tsx`. Replace `Object.assign(window.KTV.UI ??= {}, { ... })` with named exports for each component.
-- [ ] 4.5 Move `catalog.jsx` → `src/catalog.tsx`. Replace globals with imports from `./state`, `./app-ui`. Export the `Catalog` component.
-- [ ] 4.6 Move `player.jsx` → `src/player.tsx`. Same treatment.
-- [ ] 4.7 Move `app.jsx` → `src/app.tsx`. Convert the IIFE that mounts `<App />` to `export default function App() { ... }`. Move the actual `ReactDOM.createRoot(...).render(<App />)` call into `src/main.tsx` (next task).
-- [ ] 4.8 Create `src/main.tsx` with: `import "./styles/ktv.css"; import "./styles/ktv-extras.css"; import App from "./app"; import { createRoot } from "react-dom/client"; createRoot(document.getElementById("root")!).render(<App />);`. Add `<div id="root"></div>` to `index.html` body.
-- [ ] 4.9 Run `pnpm --filter litektv-frontend typecheck` — fix all errors. Run `pnpm --filter litektv-frontend build` — confirm `dist/index.html` + `dist/assets/*.js` are produced.
-- [ ] 4.10 `git rm` all the old `.jsx` files (state, urlparse, pinyin-search, app-ui, catalog, player, app) — leave `tweaks-panel.jsx` alone per design.
-- [ ] 4.11 Commit: `refactor(frontend): migrate .jsx → .tsx, drop window.KTV bridge, switch to Vite ESM`
+- [x] 4.1 `state.jsx` → `src/state.tsx`. IIFE dropped. Named exports `useRoom`, `useMe`, `useFavorites`, `SLUG`, `randomSlug`. `RESERVED_PATHS` updated to drop legacy filenames and add `index.html` + `assets`. WS messages typed with `@litektv/types` (`RoomState`, `Song`, `Favorite`, `SongRef`).
+- [x] 4.2 `urlparse.jsx` → `src/urlparse.ts`. Named exports `extractFromText`, `parseAddSong`, `embedUrl`, `fallbackTitle`, `thumbUrl`, `fetchMeta`. No JSX.
+- [x] 4.3 `pinyin-search.jsx` → `src/pinyin-search.ts`. `pinyin` imported from `pinyin-pro` npm; `window.pinyinPro` reliance removed.
+- [x] 4.4 `app-ui.jsx` → `src/app-ui.tsx`. Every UI atom (NeonButton, IconBtn, Glyph, AddSongInput, StarBtn, CoverThumb, SongCard, QueueRow, ProfileSheet, Onboarding, fmtTime/ago/uid/EMOJI_POOL) is a named export. `window.KTV.UI = …` block deleted.
+- [x] 4.5 `catalog.jsx` → `src/catalog.tsx`. `CatalogModal` exported; consumes `useFavorites` + `filterFavorites` + UI primitives via real ES imports.
+- [x] 4.6 `player.jsx` → `src/player.tsx`. `Player` exported; YouTube IFrame API typed via a local `declare global { interface Window }` block.
+- [x] 4.7 `app.jsx` → `src/app.tsx`. `App` is the default export; the `ReactDOM.createRoot(...).render(<App/>)` call lives in `src/main.tsx`.
+- [x] 4.8 `src/main.tsx` mounts the app and imports both stylesheets.
+- [x] 4.9 `pnpm --filter litektv-frontend typecheck` and `pnpm --filter litektv-frontend build` both clean. Build emits `dist/index.html` + hashed `dist/assets/{js,css}`; built HTML verified to contain no unpkg / babel references.
+- [x] 4.10 `git rm` removed state/urlparse/pinyin-search/app-ui/catalog/player/app `.jsx`. `tweaks-panel.jsx` left untouched (out of scope per design).
+- [x] 4.11 Commit: `refactor(frontend): migrate .jsx → .tsx, drop window.KTV bridge, switch to Vite ESM`
 
 ## 5. Backend dev/prod mode toggle
 

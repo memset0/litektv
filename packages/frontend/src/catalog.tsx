@@ -2,23 +2,28 @@
 //
 // Centered popup over the app. Search input pinned at the top. List ordered
 // by added_at DESC (server-side; we just render the order we received).
-// Esc / backdrop click closes. Each row has a single "+ to queue" action;
-// removing a favorite is intentionally not supported in v1.
+// Esc / backdrop click closes. Each row exposes three icon buttons:
+//   ✏️ edit   — opens the FavoriteEditSheet (lifted to <App>)
+//   +  add    — sends queue.add with a {source, videoId, page} ref
+//   🗑 delete — confirm then favorite.remove
 
 import { useEffect, useRef, useState } from "react";
-import type { SongRef } from "@litektv/types";
+import type { Favorite, SongRef } from "@litektv/types";
 import { useFavorites } from "./state";
 import { CoverThumb, Glyph, IconBtn, SongCard, type MetaBit } from "./app-ui";
 import { filterFavorites } from "./pinyin-search";
+import { favoritesByKey, formatSongTitle } from "./display";
 
 interface CatalogModalProps {
   open: boolean;
   onClose: () => void;
   onAddRef: (ref: SongRef) => void;
+  onEdit: (fav: Favorite) => void;
 }
 
-export function CatalogModal({ open, onClose, onAddRef }: CatalogModalProps) {
-  const [favs] = useFavorites();
+export function CatalogModal({ open, onClose, onAddRef, onEdit }: CatalogModalProps) {
+  const [favs, favOps] = useFavorites();
+  const favsMap = favoritesByKey(favs);
   const [q, setQ] = useState("");
   const [recentlyAdded, setRecentlyAdded] = useState<Record<string, true>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -80,27 +85,59 @@ export function CatalogModal({ open, onClose, onAddRef }: CatalogModalProps) {
               if (f.addedBy) meta.push({ kind: "by", name: f.addedBy.name, emoji: f.addedBy.emoji });
               meta.push({ kind: "time", ts: f.addedAt });
               const flashed = !!recentlyAdded[key];
+              const askDelete = () => {
+                const ok = window.confirm(
+                  `从收藏中删除「${f.displayTitle || f.title}」？`,
+                );
+                if (!ok) return;
+                favOps.removeFavorite({
+                  source: f.source,
+                  videoId: f.videoId,
+                  page: f.page,
+                });
+              };
+              const renderedTitle = formatSongTitle(
+                {
+                  source: f.source,
+                  videoId: f.videoId,
+                  page: f.page,
+                  title: f.title,
+                },
+                favsMap,
+              );
               return (
                 <SongCard
                   key={key}
                   songKey={key}
                   cover={<CoverThumb source={f.source} videoId={f.videoId} />}
-                  title={f.title}
+                  title={renderedTitle}
                   meta={meta}
                   actions={
-                    <IconBtn
-                      glyph={flashed ? Glyph.check : Glyph.plusSm}
-                      title={flashed ? "Added to queue" : "Add to queue"}
-                      onClick={() => {
-                        onAddRef({
-                          source: f.source,
-                          videoId: f.videoId,
-                          page: f.source === "bili" && f.page ? f.page : undefined,
-                        });
-                        flashAdded(key);
-                      }}
-                      className={flashed ? "is-flash" : null}
-                    />
+                    <>
+                      <IconBtn
+                        glyph={Glyph.pencil}
+                        title="编辑"
+                        onClick={() => onEdit(f)}
+                      />
+                      <IconBtn
+                        glyph={flashed ? Glyph.check : Glyph.plusSm}
+                        title={flashed ? "Added to queue" : "Add to queue"}
+                        onClick={() => {
+                          onAddRef({
+                            source: f.source,
+                            videoId: f.videoId,
+                            page: f.source === "bili" && f.page ? f.page : undefined,
+                          });
+                          flashAdded(key);
+                        }}
+                        className={flashed ? "is-flash" : null}
+                      />
+                      <IconBtn
+                        glyph={Glyph.trash}
+                        title="删除"
+                        onClick={askDelete}
+                      />
+                    </>
                   }
                 />
               );

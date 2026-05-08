@@ -292,3 +292,37 @@ body[data-font="display"] {
   box-shadow: 0 0 14px rgba(255, 46, 166, 0.32);
 }
 
+
+/* ── Favorite edit sheet ─────────────────────────────────────── */
+.form-readonly {
+  display: block;
+  background: rgba(7, 6, 15, 0.45);
+  border: 1px dashed var(--line);
+  color: var(--ink-mute);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-word;
+}
+.fav-mode-group {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.fav-mode-pill {
+  display: inline-flex; align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink-dim);
+  background: transparent;
+}
+.fav-mode-pill input { display: none; }
+.fav-mode-pill:hover { border-color: var(--ink-dim); color: var(--ink); }
+.fav-mode-pill.is-on {
+  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+  border-color: var(--neon-pink);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 46, 166, 0.4);
+}

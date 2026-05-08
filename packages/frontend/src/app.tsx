@@ -1,11 +1,12 @@
 // app.tsx — main App orchestrator (English-only, fixed orbitron / cyber / comfy).
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { DanmakuMsg, Song, SongRef } from "@litektv/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DanmakuMsg, Favorite, Song, SongRef } from "@litektv/types";
 import { SLUG, useFavorites, useMe, useRoom } from "./state";
 import {
   AddSongInput,
   CoverThumb,
+  FavoriteEditSheet,
   Glyph,
   IconBtn,
   NeonButton,
@@ -19,6 +20,7 @@ import {
 } from "./app-ui";
 import { CatalogModal } from "./catalog";
 import { Player } from "./player";
+import { favoritesByKey, formatSongTitle } from "./display";
 
 interface DanmakuTrack extends DanmakuMsg {
   lane: number;
@@ -106,9 +108,11 @@ interface NowPlayingBarProps {
   hasNext: boolean;
   onNext: () => void;
   onPrev: () => void;
+  /** Pre-formatted title from the parent (favorites-aware). */
+  titleOverride?: string;
 }
 
-function NowPlayingBar({ current, hasPrev, hasNext, onNext, onPrev }: NowPlayingBarProps) {
+function NowPlayingBar({ current, hasPrev, hasNext, onNext, onPrev, titleOverride }: NowPlayingBarProps) {
   const isLive = !!current;
   const titleRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -121,8 +125,8 @@ function NowPlayingBar({ current, hasPrev, hasNext, onNext, onPrev }: NowPlaying
     const t = titleRef.current;
     const w = wrapRef.current;
     setOverflow(t.scrollWidth - w.clientWidth > 4);
-  }, [current?.id, current?.title]);
-  const titleText = current ? current.title : "— Awaiting Signal —";
+  }, [current?.id, titleOverride, current?.title]);
+  const titleText = current ? (titleOverride ?? current.title) : "— Awaiting Signal —";
   return (
     <div className="np-bar">
       <IconBtn
@@ -257,9 +261,11 @@ interface HistoryListProps {
   onReadd: (s: Song) => void;
   onToggleFavorite?: (s: Song) => void;
   isFavorited: (s: Song) => boolean;
+  /** favorite-keyed lookup so the structured title shows for fully-curated rows. */
+  favsMap: Map<string, Favorite>;
 }
 
-function HistoryList({ items, onReadd, onToggleFavorite, isFavorited }: HistoryListProps) {
+function HistoryList({ items, onReadd, onToggleFavorite, isFavorited, favsMap }: HistoryListProps) {
   if (!items || items.length === 0) return <div className="empty">No songs sung yet ✦</div>;
   return (
     <div className="hist-list">
@@ -273,12 +279,13 @@ function HistoryList({ items, onReadd, onToggleFavorite, isFavorited }: HistoryL
             { kind: "by", name: s.addedBy.name, emoji: s.addedBy.emoji },
             { kind: "time", ts: s.finishedAt || s.addedAt },
           ];
+          const renderedTitle = formatSongTitle(s, favsMap);
           return (
             <SongCard
               key={key}
               songKey={key}
               cover={<CoverThumb source={s.source} videoId={s.videoId} />}
-              title={s.title}
+              title={renderedTitle}
               meta={meta}
               actions={
                 <>
@@ -342,11 +349,21 @@ function FloatingQR({ slug }: { slug: string }) {
 export default function App() {
   const [room, send] = useRoom();
   const [me, updateMe] = useMe();
-  const [, favOps] = useFavorites();
+  const [favs, favOps] = useFavorites();
+  const favsMap = useMemo(() => favoritesByKey(favs), [favs]);
   const [showCatalog, setShowCatalog] = useState(false);
+  // The favorite currently being edited (catalog ✏️ or filled-★ click). The
+  // sheet lifts here so all three entry points can open the same component.
+  const [editing, setEditing] = useState<Favorite | null>(null);
   const toggleFavorite = useCallback(
     (song: Song) => {
-      if (!favOps.isFavorited(song)) favOps.addFavorite(song);
+      if (!favOps.isFavorited(song)) {
+        favOps.addFavorite(song);
+        return;
+      }
+      // Already favorited — open the edit sheet instead of being a no-op.
+      const fav = favOps.findFavorite(song);
+      if (fav) setEditing(fav);
     },
     [favOps],
   );
@@ -475,6 +492,7 @@ export default function App() {
             hasNext={(room.queue || []).length > 0 || !!current}
             onNext={advanceQueue}
             onPrev={replayPrev}
+            titleOverride={current ? formatSongTitle(current, favsMap) : undefined}
           />
           <DanmakuComposer onSend={sendDanmaku} />
           <UsersStrip users={room.users} meId={me.id} />
@@ -526,6 +544,7 @@ export default function App() {
                       onDelete={deleteSong}
                       onToggleFavorite={toggleFavorite}
                       isFavorited={favOps.isFavorited(current)}
+                      displayTitle={formatSongTitle(current, favsMap)}
                     />
                   )}
                   {room.queue.length === 0 && current ? (
@@ -575,6 +594,7 @@ export default function App() {
                             dragging={isDragging}
                             dropTarget={isDropTarget}
                             disableTop={i === 0}
+                            displayTitle={formatSongTitle(s, favsMap)}
                           />
                         </div>
                       );
@@ -588,6 +608,7 @@ export default function App() {
                 onReadd={(s) => addSong({ ...s, id: uid(), addedAt: Date.now() })}
                 onToggleFavorite={toggleFavorite}
                 isFavorited={favOps.isFavorited}
+                favsMap={favsMap}
               />
             )}
           </div>
@@ -605,7 +626,27 @@ export default function App() {
         open={showCatalog}
         onClose={() => setShowCatalog(false)}
         onAddRef={(ref: SongRef) => send({ type: "queue.add", ref })}
+        onEdit={(fav) => setEditing(fav)}
       />
+      {editing && (
+        <FavoriteEditSheet
+          favorite={editing}
+          onSave={(patch) =>
+            favOps.updateFavorite(
+              { source: editing.source, videoId: editing.videoId, page: editing.page },
+              patch,
+            )
+          }
+          onDelete={() =>
+            favOps.removeFavorite({
+              source: editing.source,
+              videoId: editing.videoId,
+              page: editing.page,
+            })
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

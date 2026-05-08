@@ -125,6 +125,21 @@ export type WsMessage =
   | { type: "track.meta"; id: string; patch: Record<string, unknown> }
   | { type: "danmaku"; text: string }
   | { type: "favorite.add"; song: Record<string, unknown> }
+  | {
+      type: "favorite.update";
+      source: "yt" | "bili";
+      videoId: string;
+      page: number;
+      displayTitle?: string | null;
+      authors?: string[] | null;
+      mode?: "instr" | "vocal" | null;
+    }
+  | {
+      type: "favorite.remove";
+      source: "yt" | "bili";
+      videoId: string;
+      page: number;
+    }
   | { type: "heartbeat" }
   | { type: "hello"; userId: string; name: string; emoji: string; anonymous: boolean }
   | { type: "profile.update"; name: string; emoji: string; anonymous: boolean };
@@ -318,11 +333,40 @@ export interface FavoriteInput {
   duration?: number;
 }
 
+export interface FavoritePatch {
+  displayTitle?: string | null;
+  authors?: string[] | null;
+  mode?: "instr" | "vocal" | null;
+}
+
+export interface FavoriteKey {
+  source: "yt" | "bili";
+  videoId: string;
+  page: number;
+}
+
 export interface FavOps {
   addFavorite: (song: FavoriteInput) => void;
   isFavorited: (
     song: { source?: string; videoId?: string; page?: number } | null | undefined,
   ) => boolean;
+  /** Look up the favorite row that matches a song record (canonical key). */
+  findFavorite: (
+    song: { source?: string; videoId?: string; page?: number } | null | undefined,
+  ) => Favorite | undefined;
+  updateFavorite: (key: FavoriteKey, patch: FavoritePatch) => void;
+  removeFavorite: (key: FavoriteKey) => void;
+}
+
+function favoriteKeyOf(song: {
+  source?: string;
+  videoId?: string;
+  page?: number;
+}): { source: "yt" | "bili"; videoId: string; page: number } | null {
+  if (!song?.source || !song.videoId) return null;
+  if (song.source !== "yt" && song.source !== "bili") return null;
+  const page = song.source === "bili" ? (song.page ?? 1) : 0;
+  return { source: song.source, videoId: song.videoId, page };
 }
 
 export function useFavorites(): [Favorite[], FavOps] {
@@ -330,11 +374,17 @@ export function useFavorites(): [Favorite[], FavOps] {
   useEffect(() => conn.subscribeFavorites(setFavs), []);
   const isFavorited = useCallback<FavOps["isFavorited"]>(
     (song) => {
-      if (!song || !song.source || !song.videoId) return false;
-      const page = song.source === "bili" ? (song.page ?? 1) : 0;
-      return favs.some(
-        (f) => f.source === song.source && f.videoId === song.videoId && f.page === page,
-      );
+      const k = favoriteKeyOf(song ?? {});
+      if (!k) return false;
+      return favs.some((f) => f.source === k.source && f.videoId === k.videoId && f.page === k.page);
+    },
+    [favs],
+  );
+  const findFavoriteOp = useCallback<FavOps["findFavorite"]>(
+    (song) => {
+      const k = favoriteKeyOf(song ?? {});
+      if (!k) return undefined;
+      return favs.find((f) => f.source === k.source && f.videoId === k.videoId && f.page === k.page);
     },
     [favs],
   );
@@ -351,5 +401,34 @@ export function useFavorites(): [Favorite[], FavOps] {
       },
     });
   }, []);
-  return [favs, { addFavorite, isFavorited }];
+  const updateFavoriteOp = useCallback<FavOps["updateFavorite"]>((key, patch) => {
+    const msg: WsMessage = {
+      type: "favorite.update",
+      source: key.source,
+      videoId: key.videoId,
+      page: key.page,
+    };
+    if ("displayTitle" in patch) msg.displayTitle = patch.displayTitle;
+    if ("authors" in patch) msg.authors = patch.authors;
+    if ("mode" in patch) msg.mode = patch.mode;
+    conn.send(msg);
+  }, []);
+  const removeFavoriteOp = useCallback<FavOps["removeFavorite"]>((key) => {
+    conn.send({
+      type: "favorite.remove",
+      source: key.source,
+      videoId: key.videoId,
+      page: key.page,
+    });
+  }, []);
+  return [
+    favs,
+    {
+      addFavorite,
+      isFavorited,
+      findFavorite: findFavoriteOp,
+      updateFavorite: updateFavoriteOp,
+      removeFavorite: removeFavoriteOp,
+    },
+  ];
 }

@@ -63,28 +63,40 @@ const parseKey = (k: string): FavoriteKey => {
 };
 
 /**
- * Replay non-rollback audit rows up to (and including) the target timestamp,
- * computing what each (source, videoId, page) looked like at that moment.
+ * Compute what the favorites table looked like at `targetTs` by starting
+ * from the CURRENT state and undoing every audit row that landed after the
+ * target. This handles rows that pre-date the audit log (no audit row
+ * exists for them, so they remain in the target state) — a pure replay-
+ * from-zero would mistakenly drop them.
+ *
  * Rollback rows are skipped — point-in-time recovery is computed from the
  * underlying singular mutations regardless of whether prior rollbacks ran.
  */
 function computeTargetState(targetTs: number): Map<string, Favorite> {
-  const audit = listFavoriteAudit({ untilTs: targetTs });
-  const out = new Map<string, Favorite>();
-  for (const e of audit) {
+  const state = new Map<string, Favorite>();
+  for (const f of listFavorites()) {
+    state.set(keyOf(f), f);
+  }
+  const audit = listFavoriteAudit({});
+  // Walk in reverse chronological order; only inverses for rows AFTER the target.
+  for (let i = audit.length - 1; i >= 0; i--) {
+    const e = audit[i]!;
+    if (e.ts <= targetTs) continue;
     if (e.op === "rollback") continue;
     if (e.source == null || e.videoId == null || e.page == null) continue;
-    const key = keyOf({ source: e.source, videoId: e.videoId, page: e.page });
-    if (e.op === "remove") {
-      out.delete(key);
-      continue;
-    }
-    // add / update — `after` is the row state post-op
-    if (e.after && !Array.isArray(e.after)) {
-      out.set(key, e.after);
+    const k = keyOf({ source: e.source, videoId: e.videoId, page: e.page });
+    if (e.op === "add") {
+      // The add was post-target, so the row didn't exist at target. Drop it.
+      state.delete(k);
+    } else if (e.op === "remove") {
+      // The remove was post-target, so the row DID exist at target — restore.
+      if (e.before && !Array.isArray(e.before)) state.set(k, e.before);
+    } else if (e.op === "update") {
+      // Roll the update back to its `before` snapshot.
+      if (e.before && !Array.isArray(e.before)) state.set(k, e.before);
     }
   }
-  return out;
+  return state;
 }
 
 interface Diff {

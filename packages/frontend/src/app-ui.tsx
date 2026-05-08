@@ -523,7 +523,7 @@ export function QueueRow({
     <SongCard
       songKey={song.id}
       cover={cover}
-      title={song.title}
+      title={renderedTitle}
       meta={meta}
       // Don't pass `active` — the pinned current row should look like any
       // other row in chrome (no pink border, no glow). The plate + the

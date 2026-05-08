@@ -34,6 +34,15 @@ Co-author lines for AI assistants are welcome (e.g. `Co-Authored-By: Claude Opus
 
 Whenever a new feature is implemented or a bug is fixed, commit it under a Conventional Commit message (per the section above) AND push immediately. Don't batch unrelated changes into a single commit; one commit per feature/fix.
 
+After a successful `openspec archive <change>` (the rename to `openspec/changes/archive/<date>-<change>/` plus the merged spec update), automatically commit those moves AND `git push` — without waiting for the user to ask. Archive is the conclusion of a feature; the push is part of "feature complete".
+
+When pushing, push ONLY the commits you made in this session. Concrete recipe:
+
+1. List unpushed commits: `git log origin/master..HEAD --pretty='%h %an %s'`.
+2. Verify every line is yours (author `memset0`, message YOU wrote, body matches the work YOU did this session).
+3. If anything in that list isn't yours, a parallel agent has unpushed work locally — DO NOT `git push origin master`. Instead, push only your specific commit: `git push origin <your-sha>:master`. If their commit is an ancestor of yours, that still pushes theirs too — in that case stop and tell the user before doing anything destructive.
+4. Otherwise, plain `git push origin master` is fine.
+
 ## Stage only your own changes
 
 Only stage files YOU modified in the current task. Never use `git add -A` or `git add .` blindly — multiple Claude Code instances (or the user themselves) may be editing this repo at the same time, and unrelated in-progress work (e.g. an OpenSpec change proposal still being authored in another window) must NOT get swept into your commit. Stage files explicitly by path.

@@ -231,8 +231,16 @@ function App() {
   }, []);
 
   const addSong = (song) => {
-    send({ type: "queue.add", song });
-    send({ type: "danmaku", text: `★ ${song.addedBy.emoji} ${song.addedBy.name} queued « ${song.title} »`.slice(0, 80) });
+    // Stamp every queue.add with the CURRENT user as the adder, regardless
+    // of what the source object carried. This way replay-from-history and
+    // re-add-from-catalog always show the live user's name, not the person
+    // who queued it the first time.
+    const addedBy = me.anonymous
+      ? { name: "Anonymous", emoji: "👤", anonymous: true }
+      : { id: me.id, name: me.name || "Unnamed", emoji: me.emoji || "🎤", anonymous: false };
+    const stamped = { ...song, addedBy };
+    send({ type: "queue.add", song: stamped });
+    send({ type: "danmaku", text: `★ ${addedBy.emoji} ${addedBy.name} queued « ${stamped.title} »`.slice(0, 80) });
   };
   const reorderSong = (id, toIndex) => send({ type: "queue.reorder", id, toIndex });
   const topSong = (id) => send({ type: "queue.top", id });

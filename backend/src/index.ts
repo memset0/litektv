@@ -23,7 +23,11 @@ app.use((req, res, next) => {
 app.use(createRestRouter());
 
 if (config.staticDir) {
-  app.use(express.static(path.resolve(config.staticDir)));
+  app.use(
+    express.static(path.resolve(config.staticDir), {
+      index: ["KTV.html", "index.html"],
+    }),
+  );
 }
 
 const server = http.createServer(app);

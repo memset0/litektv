@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { deleteRoom as dbDeleteRoom, loadAllRooms, saveRoom as dbSaveRoom } from "./db.js";
 import type { DanmakuMsg, RoomState, Song, UserPresence } from "./types.js";
 import { now, uuid } from "./util.js";
 
@@ -9,6 +10,17 @@ export interface Room {
 }
 
 const rooms = new Map<string, Room>();
+
+/** Hydrate the in-memory map from the SQLite store. Call once on startup. */
+export function restoreRooms(): void {
+  for (const p of loadAllRooms()) {
+    rooms.set(p.slug, {
+      state: { ...p.state, slug: p.slug },
+      lastActivity: p.lastActivity,
+      subscribers: new Set(),
+    });
+  }
+}
 
 function blankState(slug: string): RoomState {
   return {
@@ -38,6 +50,11 @@ export function getOrCreateRoom(slug: string): Room {
 function bump(room: Room) {
   room.state.rev += 1;
   room.lastActivity = now();
+  try {
+    dbSaveRoom(room.state.slug, room.state, room.lastActivity);
+  } catch {
+    // persistence is best-effort; never block a mutation
+  }
   for (const fn of room.subscribers) {
     try {
       fn(room.state);
@@ -178,6 +195,7 @@ export function gcRooms() {
   for (const [slug, room] of rooms) {
     if (room.lastActivity < cutoff && room.subscribers.size === 0) {
       rooms.delete(slug);
+      try { dbDeleteRoom(slug); } catch {}
     }
   }
 }

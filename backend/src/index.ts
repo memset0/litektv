@@ -2,9 +2,13 @@ import http from "node:http";
 import path from "node:path";
 import express from "express";
 import { config } from "./config.js";
+import { initDb } from "./db.js";
 import { createRestRouter } from "./rest.js";
-import { gcRooms } from "./rooms.js";
+import { gcRooms, restoreRooms } from "./rooms.js";
 import { attachWs } from "./ws.js";
+
+initDb();
+restoreRooms();
 
 const app = express();
 app.disable("x-powered-by");
